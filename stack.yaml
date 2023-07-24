@@ -1,0 +1,7 @@
+resolver: lts-21.4
+
+packages:
+- .
+
+extra-deps:
+- sexpresso-1.2.3.0
