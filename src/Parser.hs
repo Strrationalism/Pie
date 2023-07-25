@@ -81,7 +81,7 @@ pieAtomParser :: PieParser PieValue
 pieAtomParser = do
   pos <- getSourcePos
   x <- pieAtomParser'
-  return $ WithErrorInfo x $ ErrorInfo
+  return $ WithErrorInfo x $ Just $ ErrorInfo
     { errorInfoFilePath = sourceName pos
     , errorInfoCol = unPos $ sourceColumn pos
     , errorInfoRow = unPos $ sourceLine pos }

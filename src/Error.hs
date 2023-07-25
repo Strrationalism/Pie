@@ -8,7 +8,7 @@ data ErrorInfo = ErrorInfo
   , errorInfoCol :: Int }
   deriving (Eq, Show)
 
-data WithErrorInfo a = WithErrorInfo a ErrorInfo
+data WithErrorInfo a = WithErrorInfo a (Maybe ErrorInfo)
                        deriving (Eq, Show)
 
 
