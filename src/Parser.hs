@@ -1,17 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-module Parser where
+module Parser (parseFromFile, parseFromText) where
 
-import Text.Megaparsec.Char hiding ( space )
-import Text.Megaparsec
-import Data.Text (Text, pack)
-import Data.Void (Void)
-import Data.Maybe (fromMaybe)
 import AST
+import Data.Bifunctor (first)
+import Data.Maybe (fromMaybe)
 import Data.SExpresso.Parse (decode, plainSExprParser)
 import Data.SExpresso.Parse.Generic (setSpace)
-import Text.Megaparsec.Char.Lexer ( space,  skipLineComment )
+import Data.Text (Text)
+import Data.Text.IO (readFile)
+import Data.Void (Void)
 import Error
+import Prelude hiding (readFile)
+import Text.Megaparsec
+import Text.Megaparsec.Char hiding (space)
+import Text.Megaparsec.Char.Lexer (space, skipLineComment)
 
 type PieParser = Parsec Void Text
 
@@ -86,11 +88,14 @@ pieAtomParser = do
 
 withComments :: PieParser [PieExpr]
 withComments = decode $
-               -- See megaparsec Space in Megaparsec.Char.Lexer
                setSpace (space space1 (skipLineComment ";") empty) $
                plainSExprParser pieAtomParser
 
-test :: String
- -> Parsec e Text a
- -> Either (ParseErrorBundle Text e) a
-test s x = runParser x "" (pack s)
+parseFromText :: FilePath -> Text -> Either String [PieExpr]
+parseFromText srcName =
+  first errorBundlePretty . runParser withComments srcName
+
+parseFromFile :: FilePath -> IO (Either String [PieExpr])
+parseFromFile srcPath = do
+  content <- readFile srcPath
+  pure $ parseFromText srcPath content
