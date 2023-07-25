@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Parser (parseFromFile, parseFromText) where
+module Parser (parseFromFile, parseFromText, printFromFile) where
 
 import AST
 import Data.Bifunctor (first)
@@ -99,3 +99,10 @@ parseFromFile :: FilePath -> IO (Either String [PieExpr])
 parseFromFile srcPath = do
   content <- readFile srcPath
   pure $ parseFromText srcPath content
+
+
+printFromFile :: FilePath -> IO ()
+printFromFile path = do
+  result <- parseFromFile path
+  case result of Left x -> putStrLn x
+                 Right y -> putStrLn $ prettyPrintExprsTop y
