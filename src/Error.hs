@@ -10,10 +10,16 @@ data ErrorInfo = ErrorInfo
   { errorInfoFilePath :: FilePath
   , errorInfoRow :: Int
   , errorInfoCol :: Int }
-  deriving (Eq, Show)
+  deriving Eq
 
 data WithErrorInfo a = WithErrorInfo a (Maybe ErrorInfo)
                        deriving (Eq, Show)
+
+instance Show ErrorInfo where
+  show x =
+    errorInfoFilePath x ++ "(" ++
+    show (errorInfoRow x) ++ ":" ++
+    show (errorInfoCol x) ++ ")"
 
 instance Functor WithErrorInfo where
   fmap f (WithErrorInfo x y) = WithErrorInfo (f x) y

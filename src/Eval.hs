@@ -24,12 +24,14 @@ getContext = PieEval id
 tryLookupEnv :: String -> PieEval (Maybe PieValue)
 tryLookupEnv name = lookup name . pieEvalContextEnv <$> getContext
 
-lookupEnv :: String -> PieEval PieValue
-lookupEnv name = do
+lookupEnv :: WithErrorInfo String -> PieEval PieValue
+lookupEnv (WithErrorInfo name errInfo) = do -- TODO: print err info
   val <- tryLookupEnv name
   case val of
     Just x -> return x
-    Nothing -> runtimeError $ "Could not find \'" ++ name ++ "\' in env."
+    Nothing ->
+      runtimeError' errInfo $
+        "Could not find " ++ "\'" ++ name ++ "\' in env."
 
 runWithModifiedContext ::
   (PieEvalContext -> PieEvalContext) -> PieEval r -> PieEval r
@@ -39,12 +41,23 @@ unwrapEval :: PieEval r -> PieEvalContext -> r
 unwrapEval (PieEval r) = r
 
 runtimeError :: String -> PieEval a
-runtimeError = error  -- TODO: print error information
+runtimeError = runtimeError' Nothing
+
+runtimeError' :: Maybe ErrorInfo -> String -> PieEval a
+runtimeError' _ = error -- TODO
 
 -- Eval
 
-eval' :: PieExpr -> PieEval PieValue
-eval' (PieExprAtom (UnError (PieSymbol symbol))) = lookupEnv symbol
-eval' (PieExprAtom x) = return x
-eval' PieExprEmpty = return $ noErrorInfo PieNil
-eval' _ = undefined  -- TODO
+evalExpr :: PieExpr -> PieEval PieValue
+evalExpr (PieExprAtom (WithErrorInfo (PieSymbol symbol) errInfo)) =
+  lookupEnv $ WithErrorInfo symbol errInfo
+evalExpr (PieExprAtom x) = return x
+evalExpr PieExprEmpty = return $ noErrorInfo PieNil
+evalExpr (PieExprList1 f args) = do
+  (WithErrorInfo f' errorInfo) <- evalExpr f
+  args <- mapM evalExpr args
+  return undefined
+evalExpr _ = undefined  -- TODO
+
+apply :: String -> PieValue' -> PieExpr
+apply = undefined
