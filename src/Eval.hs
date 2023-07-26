@@ -59,5 +59,3 @@ evalExpr (PieExprList1 f args) = do
   return undefined
 evalExpr _ = undefined  -- TODO
 
-apply :: String -> PieValue' -> PieExpr
-apply = undefined

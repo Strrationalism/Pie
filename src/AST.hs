@@ -6,8 +6,10 @@ import Data.SExpresso.SExpr (Sexp, SExpr (SAtom, SList))
 
 -- Types
 
+type PieEnv = [(String, PieValue)]
+
 data PieEvalContext = EvalContext
-  { pieEvalContextEnv :: [(String, PieValue)]
+  { pieEvalContextEnv :: PieEnv
   , pieEvalContextCallStack :: [(String, ErrorInfo)]
   }
 
@@ -16,7 +18,7 @@ data PieValue' = PieNumber Double
                | PieString String
                | PieSymbol String
                | PieNil
-               | PieLambda String [String] PieExpr
+               | PieLambda String [String] PieExpr PieEnv
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> PieExpr)
@@ -27,7 +29,7 @@ instance Eq PieValue' where
   PieString a == PieString b = a == b
   PieSymbol a == PieSymbol b = a == b
   PieNil == PieNil = True
-  PieLambda a b c == PieLambda x y z = a == x && b == y && c == z
+  PieLambda a b c d == PieLambda x y z w = a == x && b == y && c == z && d == w
   PieHaskellFunction a _ == PieHaskellFunction b _ = a == b
   _ == _ = False
 
@@ -38,7 +40,7 @@ instance Show PieValue' where
   show (PieString s) = show s
   show (PieSymbol s) = s
   show PieNil = "()"
-  show (PieLambda _ a b) =
+  show (PieLambda _ a b _) =
     "(lambda (" ++ unwords a ++ ") " ++ prettyPrintExpr b ++ ")"
   show (PieHaskellFunction x _) = "(lambda <" ++ x ++ ">)"
 
