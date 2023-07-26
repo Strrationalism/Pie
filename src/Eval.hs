@@ -4,6 +4,7 @@ module Eval where
 import AST
 import Error
 import Control.Monad (ap)
+import Data.Maybe (fromMaybe)
 
 -- Pie Eval Monad
 
@@ -37,6 +38,12 @@ runWithModifiedContext ::
   (PieEvalContext -> PieEvalContext) -> PieEval r -> PieEval r
 runWithModifiedContext f (PieEval x) = PieEval $ \ctx -> x (f ctx)
 
+runWithNewCallStackFrame :: WithErrorInfo String -> PieEval r -> PieEval r
+runWithNewCallStackFrame stackFrame e = undefined -- TODO
+
+runInEnv :: PieEnv -> PieEval r -> PieEval r
+runInEnv = undefined   -- TODO
+
 unwrapEval :: PieEval r -> PieEvalContext -> r
 unwrapEval (PieEval r) = r
 
@@ -56,6 +63,13 @@ evalExpr PieExprEmpty = return $ noErrorInfo PieNil
 evalExpr (PieExprList1 f args) = do
   (WithErrorInfo f' errorInfo) <- evalExpr f
   args <- mapM evalExpr args
-  return undefined
+  case f' of
+    PieLambda name params body env ->
+      if length args /= length params
+        then runtimeError' errorInfo $
+          "Invalid arguments for function" ++
+          maybe "" (" " ++) name ++ "."
+        else undefined
+    _ -> undefined
 evalExpr _ = undefined  -- TODO
 

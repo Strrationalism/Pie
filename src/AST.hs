@@ -10,7 +10,7 @@ type PieEnv = [(String, PieValue)]
 
 data PieEvalContext = EvalContext
   { pieEvalContextEnv :: PieEnv
-  , pieEvalContextCallStack :: [(String, ErrorInfo)]
+  , pieEvalContextCallStack :: [WithErrorInfo String]
   }
 
 data PieValue' = PieNumber Double
@@ -18,7 +18,7 @@ data PieValue' = PieNumber Double
                | PieString String
                | PieSymbol String
                | PieNil
-               | PieLambda String [String] PieExpr PieEnv
+               | PieLambda (Maybe String) [String] PieExpr PieEnv
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> PieExpr)
