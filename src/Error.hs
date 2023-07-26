@@ -3,7 +3,8 @@ module Error
   ( WithErrorInfo ( WithErrorInfo )
   , ErrorInfo (..)
   , pattern UnError
-  , unError) where
+  , unError
+  , noErrorInfo) where
 
 data ErrorInfo = ErrorInfo
   { errorInfoFilePath :: FilePath
@@ -22,3 +23,6 @@ pattern UnError x <- WithErrorInfo x _
 
 unError :: WithErrorInfo a -> a
 unError (WithErrorInfo x _) = x
+
+noErrorInfo :: a -> WithErrorInfo a
+noErrorInfo x = WithErrorInfo x Nothing

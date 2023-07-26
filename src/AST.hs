@@ -1,16 +1,46 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AST where
-import Error (WithErrorInfo (WithErrorInfo), unError)
+import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
 import Data.SExpresso.SExpr (Sexp, SExpr (SAtom, SList))
 
 -- Types
+
+data PieEvalContext = EvalContext
+  { pieEvalContextEnv :: [(String, PieValue)]
+  , pieEvalContextCallStack :: [(String, ErrorInfo)]
+  }
 
 data PieValue' = PieNumber Double
                | PieBool Bool
                | PieString String
                | PieSymbol String
-               deriving (Show, Eq)
+               | PieNil
+               | PieLambda String [String] PieExpr
+               | PieHaskellFunction
+                  String
+                  ([PieExpr] -> PieEvalContext -> PieExpr)
+
+instance Eq PieValue' where
+  PieNumber n == PieNumber m = n == m
+  PieBool a == PieBool b = a == b
+  PieString a == PieString b = a == b
+  PieSymbol a == PieSymbol b = a == b
+  PieNil == PieNil = True
+  PieLambda a b c == PieLambda x y z = a == x && b == y && c == z
+  PieHaskellFunction a _ == PieHaskellFunction b _ = a == b
+  _ == _ = False
+
+instance Show PieValue' where
+  show (PieNumber x) = show x
+  show (PieBool True) = "true"
+  show (PieBool False) = "false"
+  show (PieString s) = show s
+  show (PieSymbol s) = s
+  show PieNil = "()"
+  show (PieLambda _ a b) =
+    "(lambda (" ++ unwords a ++ ") " ++ prettyPrintExpr b ++ ")"
+  show (PieHaskellFunction x _) = "(lambda <" ++ x ++ ">)"
 
 type PieValue = WithErrorInfo PieValue'
 
@@ -38,15 +68,8 @@ pattern PieExprList1Symbol x xs <- PieExprList1 (PieExprSymbol x) xs
 
 -- Pretty Print
 
-showAtom' :: PieValue' -> String
-showAtom' (PieNumber x) = show x
-showAtom' (PieBool True) = "true"
-showAtom' (PieBool False) = "false"
-showAtom' (PieString s) = show s
-showAtom' (PieSymbol s) = s
-
 showAtom :: PieValue -> String
-showAtom = showAtom' . unError
+showAtom = show . unError
 
 makeIndent :: Int -> String
 makeIndent indent = replicate (indent * indentSize) ' '
