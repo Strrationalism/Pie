@@ -79,6 +79,8 @@ evalExpr (PieExprAtom (WithErrorInfo (PieSymbol symbol) errInfo)) =
   lookupEnv $ WithErrorInfo symbol errInfo
 evalExpr (PieExprAtom x) = return x
 evalExpr PieExprEmpty = return $ noErrorInfo PieNil
+evalExpr (PieExprList1Symbol "define" _) = runtimeError "Invalid define."
+evalExpr (PieExprList1Symbol "defines" _) = runtimeError "Invalid defines."
 evalExpr (PieExprList1 f args) = do
   (WithErrorInfo f' errInfo) <- evalExpr f
   case f' of
@@ -99,16 +101,45 @@ evalExpr (PieExprList1 f args) = do
     x -> runtimeError' errInfo $ show x ++ " is not callable."
 evalExpr _ = undefined
 
-pattern Define :: String -> PieExpr -> PieExpr
-pattern Define v body <-
+pattern PieExprDefine :: String -> PieExpr -> PieExpr
+pattern PieExprDefine v body <-
   PieExprList1Symbol "define" [PieExprAtom (UnError (PieSymbol v)), body]
 
-pattern Defines :: [PieExpr] -> PieExpr
-pattern Defines bindings <-
+pattern PieExprDefines :: [PieExpr] -> PieExpr
+pattern PieExprDefines bindings <-
   PieExprList1Symbol "defines" bindings
+
+runWithDefine :: String -> PieExpr -> PieEval r -> PieEval r
+runWithDefine name expr cont = do
+  val <- evalExpr expr
+  env <- pieEvalContextEnv <$> getContext
+  runInEnv ((name, val) : env) cont
+
+runWithDefines :: [(String, PieExpr)] -> PieEval r -> PieEval r
+runWithDefines [] k = k
+runWithDefines ((name, val):xs) k =
+  runWithDefine name val $ runWithDefines xs k
+
+pattern PieExprBinding :: String -> PieExpr -> PieExpr
+pattern PieExprBinding name body <- PieExprList1Symbol name [body]
+
+runWithDefineSyntax :: [PieExpr] -> PieEval r -> PieEval r
+runWithDefineSyntax xs k = do
+  bindings <- mapM extractBinding xs
+  runWithDefines bindings k
+  where extractBinding (PieExprBinding name body) = pure (name, body)
+        extractBinding x =
+          runtimeError $ "Invalid binding expression: " ++ show x
 
 evalStatements :: [PieExpr] -> PieEval PieValue
 evalStatements [] = return $ noErrorInfo PieNil
+evalStatements ((PieExprDefine name body):cont) =
+  runWithDefine name body $ evalStatements cont
+evalStatements ((PieExprDefines bindings):k) =
+  runWithDefineSyntax bindings $ evalStatements k
+evalStatements ((PieExprList1Symbol "define" _):_) =
+  runtimeError "Invalid define."
+evalStatements ((PieExprList1Symbol "defines" _): _) =
+  runtimeError "Invalid defines."
 evalStatements [x] = evalExpr x
 evalStatements (x:xs) = evalExpr x >> evalStatements xs
--- TODO: process define
