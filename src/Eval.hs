@@ -13,11 +13,12 @@ module Eval
   , runEval ) where
 
 import AST
-import Control.Monad (ap, forM_)
-import Data.Maybe (fromMaybe)
+import Control.Monad (ap)
+import Data.Maybe (fromMaybe, catMaybes)
 import Error
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import System.Exit (exitFailure)
+import Data.Foldable (foldl')
 
 -- Pie Eval Monad
 
@@ -36,6 +37,23 @@ instance Monad PieEval where
 
 instance MonadIO PieEval where
   liftIO = PieEval . const
+
+data PieEvalError = PieEvalError
+  { pieEvalErrorContext :: PieEvalContext
+  , pieEvalErrorMessage :: String
+  , pieEvalErrorFileInfo :: Maybe ErrorInfo }
+
+instance Show PieEvalError where
+  show err = unlines $ foldl' (\a b -> a ++ [""] ++ b) [] $ catMaybes infos
+    where infos = [ errInfo, fileInfo, callStackInfo ]
+          errInfo = Just [ "Error:", makeIndent 1 ++ pieEvalErrorMessage err ]
+          fileInfo = flip fmap (pieEvalErrorFileInfo err) $ \e ->
+            [ "File:", makeIndent 1 ++ show e ]
+          callStack = pieEvalContextCallStack $ pieEvalErrorContext err
+          callStackInfo = Just $ ("Call Stacks:" :) $ flip map callStack $
+            \(WithErrorInfo func errInfo') ->
+              makeIndent 1 ++
+              func ++ maybe "" (\x -> "\t(" ++ show x ++ ")") errInfo'
 
 getContext :: PieEval PieEvalContext
 getContext = PieEval pure
@@ -79,20 +97,12 @@ instance MonadFail PieEval where
 
 runtimeError' :: Maybe ErrorInfo -> String -> PieEval a
 runtimeError' errInfo msg = do
-  callStack <- pieEvalContextCallStack <$> getContext
-  liftIO $ do
-    putStrLn ""
-    putStrLn "Error:"
-    putStrLn $ makeIndent 1 ++ msg
-    case errInfo of
-      Nothing -> pure ()
-      Just x -> putStrLn >> putStrLn $ "File: " ++ show x ++ "."
-    putStrLn ""
-    putStrLn "Call Stack:"
-    forM_ callStack $ \(WithErrorInfo func errInfo') -> putStrLn $
-      makeIndent 1 ++ func ++ maybe "" (\x -> "\t(" ++ show x ++ ")") errInfo'
-    putStrLn ""
-    exitFailure
+  ctx <- getContext
+  let err = PieEvalError { pieEvalErrorContext = ctx
+                         , pieEvalErrorMessage = msg
+                         , pieEvalErrorFileInfo = errInfo }
+  liftIO $ print err
+  liftIO exitFailure
 
 -- Eval
 
