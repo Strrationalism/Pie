@@ -18,6 +18,7 @@ data PieValue' = PieNumber Double
                | PieBool Bool
                | PieString String
                | PieSymbol String
+               | PieList [PieValue']
                | PieNil
                | PieLambda (Maybe String) [String] PieExpr PieEnv
                | PieHaskellFunction
@@ -36,6 +37,7 @@ instance Eq PieValue' where
 
 instance Show PieValue' where
   show (PieNumber x) = show x
+  show (PieList ls) = "(" ++ unwords (map show ls) ++ ")"
   show (PieBool True) = "true"
   show (PieBool False) = "false"
   show (PieString s) = show s

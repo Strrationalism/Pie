@@ -52,6 +52,8 @@ let' args =
       result = runWithDefinesSyntax bindings $ evalExpr expr
   in PieExprAtom <$> result
 
+-- cond
+
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
@@ -67,7 +69,39 @@ display args = liftIO $ putStrLn (list2String args) >> pure PieNil
 error' :: PieFunc
 error' = fail . list2String
 
+list :: PieFunc
+list = pure . PieList . fmap unError
+
+-- make-var
+-- set-var!
+-- get-var!
+-- shell
+-- shell'
+-- files
+-- dirs
+-- path
+-- ext
+-- filename
+-- http
+-- eval
+-- invoke
+-- +/-/*///%
+-- car (list/string)
+-- cdr (list/string)
+-- cons (list/string)
+-- and/or/not
+-- nil?/string?/number?/list?/function?
+-- write-text
+-- change-extension
+-- file-exists
+-- dir-exists
+-- ensure-dir
+-- copy-file
+-- delete-file
+-- delete-dir
+
 functions :: [(String, PieFunc)]
 functions =
   [ ("display", display)
-  , ("error", error') ]
+  , ("error", error')
+  , ("list", list) ]
