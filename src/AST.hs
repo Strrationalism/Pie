@@ -1,8 +1,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AST where
-import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
+
 import Data.SExpresso.SExpr (Sexp, SExpr (SAtom, SList))
+import Error (WithErrorInfo (WithErrorInfo), unError)
 
 -- Types
 

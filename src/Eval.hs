@@ -1,10 +1,11 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Eval where
 
 import AST
-import Error
 import Control.Monad (ap, forM_)
 import Data.Maybe (fromMaybe)
+import Error
 import GHC.IO (unsafePerformIO)
 import System.Exit (exitWith, ExitCode (ExitFailure))
 
@@ -97,6 +98,14 @@ evalExpr (PieExprList1 f args) = do
         evalExpr $ f'' args ctx
     x -> runtimeError' errInfo $ show x ++ " is not callable."
 evalExpr _ = undefined
+
+pattern Define :: String -> PieExpr -> PieExpr
+pattern Define v body <-
+  PieExprList1Symbol "define" [PieExprAtom (UnError (PieSymbol v)), body]
+
+pattern Defines :: [PieExpr] -> PieExpr
+pattern Defines bindings <-
+  PieExprList1Symbol "defines" bindings
 
 evalStatements :: [PieExpr] -> PieEval PieValue
 evalStatements [] = return $ noErrorInfo PieNil
