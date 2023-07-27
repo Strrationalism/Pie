@@ -10,7 +10,7 @@ module Eval
   , runtimeError
   , runtimeError'
   , tryLookupEnv
-  , unwrapEval ) where
+  , runEval ) where
 
 import AST
 import Control.Monad (ap, forM_)
@@ -66,8 +66,8 @@ runInEnv env =
   runWithModifiedContext $ \x ->
     x { pieEvalContextEnv = env }
 
-unwrapEval :: PieEval r -> PieEvalContext -> IO r
-unwrapEval (PieEval r) = r
+runEval :: PieEval r -> PieEvalContext -> IO r
+runEval (PieEval r) = r
 
 runtimeError :: String -> PieEval a
 runtimeError = runtimeError' Nothing
@@ -76,6 +76,8 @@ runtimeError' :: Maybe ErrorInfo -> String -> PieEval a
 runtimeError' errInfo msg = do
   callStack <- pieEvalContextCallStack <$> getContext
   liftIO $ do
+    putStrLn ""
+    putStrLn "Error:"
     putStrLn msg
     case errInfo of
       Nothing -> pure ()
@@ -110,7 +112,7 @@ evalExpr (PieExprList1 f args) = do
             runWithCallStackFrame (WithErrorInfo (fromMaybe "" name) errInfo) $
               evalExpr body
     PieHaskellFunction name f'' ->
-      runWithCallStackFrame (WithErrorInfo name Nothing) $ do
+      runWithCallStackFrame (WithErrorInfo name errInfo) $ do
         ctx <- getContext
         a <- liftIO $ f'' args ctx
         evalExpr a

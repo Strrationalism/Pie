@@ -14,7 +14,9 @@ invalidArg :: PieEval a
 invalidArg = runtimeError "Invalid Arguments."
 
 list2String :: [PieValue] -> String
-list2String = unwords . map showAtom
+list2String = unwords . map showAtom'
+  where showAtom' (UnError (PieString x)) = x
+        showAtom' x = showAtom x
 
 runtime :: PieEnv
 runtime = fmap wrapLib (syntaxes ++ map (second wrapFunc) functions)
@@ -26,7 +28,7 @@ runtime = fmap wrapLib (syntaxes ++ map (second wrapFunc) functions)
       return $ PieExprAtom $ noErrorInfo result
     wrapLib :: (String, PieSyntax) -> (String, PieValue)
     wrapLib (name, f) = (name ,) $ noErrorInfo $ PieHaskellFunction name $
-      \args context -> unwrapEval (f args) context
+      \args context -> runEval (f args) context
 
 -- Syntaxes
 
@@ -39,9 +41,13 @@ if' [condition, a, b] = do
     _ -> invalidArg
 if' _ = invalidArg
 
+do' :: PieSyntax
+do' = fmap PieExprAtom . evalStatements
+
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
-  [ ("if", if') ]
+  [ ("if", if')
+  , ("do", do') ]
 
 
 -- Functions

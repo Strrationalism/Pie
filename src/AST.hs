@@ -2,14 +2,14 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AST where
 
-import Data.SExpresso.SExpr (Sexp, SExpr (SAtom, SList))
+import Data.SExpresso.SExpr (SExpr (SAtom, SList))
 import Error (WithErrorInfo (WithErrorInfo), unError)
 
 -- Types
 
 type PieEnv = [(String, PieValue)]
 
-data PieEvalContext = EvalContext
+data PieEvalContext = PieEvalContext
   { pieEvalContextEnv :: PieEnv
   , pieEvalContextCallStack :: [WithErrorInfo String]
   }
@@ -47,7 +47,7 @@ instance Show PieValue' where
 
 type PieValue = WithErrorInfo PieValue'
 
-type PieExpr = Sexp PieValue
+type PieExpr = SExpr () PieValue
 
 -- Patterns
 
