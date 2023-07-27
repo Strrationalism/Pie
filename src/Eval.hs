@@ -97,3 +97,9 @@ evalExpr (PieExprList1 f args) = do
         evalExpr $ f'' args ctx
     x -> runtimeError' errInfo $ show x ++ " is not callable."
 evalExpr _ = undefined
+
+evalStatements :: [PieExpr] -> PieEval PieValue
+evalStatements [] = return $ noErrorInfo PieNil
+evalStatements [x] = evalExpr x
+evalStatements (x:xs) = evalExpr x >> evalStatements xs
+-- TODO: process define
