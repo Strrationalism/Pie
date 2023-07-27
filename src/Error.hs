@@ -17,9 +17,9 @@ data WithErrorInfo a = WithErrorInfo a (Maybe ErrorInfo)
 
 instance Show ErrorInfo where
   show x =
-    errorInfoFilePath x ++ "(" ++
+    errorInfoFilePath x ++ ":" ++
     show (errorInfoRow x) ++ ":" ++
-    show (errorInfoCol x) ++ ")"
+    show (errorInfoCol x)
 
 instance Functor WithErrorInfo where
   fmap f (WithErrorInfo x y) = WithErrorInfo (f x) y

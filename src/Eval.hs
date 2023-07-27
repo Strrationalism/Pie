@@ -7,7 +7,7 @@ module Eval
   , getContext
   , lookupEnv
   , runInEnv
-  , runtimeError
+  , fail
   , runtimeError'
   , tryLookupEnv
   , runEval ) where
@@ -16,7 +16,7 @@ import AST
 import Control.Monad (ap, forM_)
 import Data.Maybe (fromMaybe)
 import Error
-import System.Exit (exitWith, ExitCode (ExitFailure))
+import System.Exit (exitWith, ExitCode (ExitFailure), exitFailure)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 
 -- Pie Eval Monad
@@ -69,8 +69,8 @@ runInEnv env =
 runEval :: PieEval r -> PieEvalContext -> IO r
 runEval (PieEval r) = r
 
-runtimeError :: String -> PieEval a
-runtimeError = runtimeError' Nothing
+instance MonadFail PieEval where
+  fail = runtimeError' Nothing
 
 runtimeError' :: Maybe ErrorInfo -> String -> PieEval a
 runtimeError' errInfo msg = do
@@ -78,16 +78,16 @@ runtimeError' errInfo msg = do
   liftIO $ do
     putStrLn ""
     putStrLn "Error:"
-    putStrLn msg
+    putStrLn $ makeIndent 1 ++ msg
     case errInfo of
       Nothing -> pure ()
       Just x -> putStrLn >> putStrLn $ "File: " ++ show x ++ "."
     putStrLn ""
     putStrLn "Call Stack:"
-    forM_ callStack $ \(WithErrorInfo funcName errInfo') -> putStrLn $
-      funcName ++ maybe "" (\x -> " (" ++ show x ++ ")") errInfo'
+    forM_ callStack $ \(WithErrorInfo func errInfo') -> putStrLn $
+      makeIndent 1 ++ func ++ maybe "" (\x -> "\t(" ++ show x ++ ")") errInfo'
     putStrLn ""
-    exitWith $ ExitFailure (-1)
+    exitFailure
 
 -- Eval
 
@@ -96,11 +96,11 @@ evalExpr (PieExprAtom (WithErrorInfo (PieSymbol symbol) errInfo)) =
   lookupEnv $ WithErrorInfo symbol errInfo
 evalExpr (PieExprAtom x) = return x
 evalExpr PieExprEmpty = return $ noErrorInfo PieNil
-evalExpr (PieExprList1Symbol "define" _) = runtimeError "Invalid define."
-evalExpr (PieExprList1Symbol "defines" _) = runtimeError "Invalid defines."
-evalExpr (PieExprList1 f args) = do
-  (WithErrorInfo f' errInfo) <- evalExpr f
-  case f' of
+evalExpr (PieExprList1Symbol "define" _) = fail "Invalid define."
+evalExpr (PieExprList1Symbol "defines" _) = fail "Invalid defines."
+evalExpr (PieExprList1WithErrorInfo f errInfo args) = do
+  f' <- evalExpr f
+  case unError f' of
     PieLambda name params body env ->
       if length args /= length params
         then runtimeError' errInfo $
@@ -147,7 +147,7 @@ runWithDefineSyntax xs k = do
   runWithDefines bindings k
   where extractBinding (PieExprBinding name body) = pure (name, body)
         extractBinding x =
-          runtimeError $ "Invalid binding expression: " ++ show x
+          fail $ "Invalid binding expression: " ++ show x
 
 evalStatements :: [PieExpr] -> PieEval PieValue
 evalStatements [] = return $ noErrorInfo PieNil
@@ -156,8 +156,9 @@ evalStatements ((PieExprDefine name body):cont) =
 evalStatements ((PieExprDefines bindings):k) =
   runWithDefineSyntax bindings $ evalStatements k
 evalStatements ((PieExprList1Symbol "define" _):_) =
-  runtimeError "Invalid define."
+  fail "Invalid define."
 evalStatements ((PieExprList1Symbol "defines" _): _) =
-  runtimeError "Invalid defines."
+  fail "Invalid defines."
 evalStatements [x] = evalExpr x
 evalStatements (x:xs) = evalExpr x >> evalStatements xs
+

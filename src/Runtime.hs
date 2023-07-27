@@ -11,7 +11,7 @@ type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
 
 invalidArg :: PieEval a
-invalidArg = runtimeError "Invalid Arguments."
+invalidArg = fail "Invalid Arguments."
 
 list2String :: [PieValue] -> String
 list2String = unwords . map showAtom'
@@ -55,6 +55,10 @@ syntaxes =
 display :: PieFunc
 display args = liftIO $ putStrLn (list2String args) >> pure PieNil
 
+error' :: PieFunc
+error' = fail . list2String
+
 functions :: [(String, PieFunc)]
 functions =
-  [ ("display", display) ]
+  [ ("display", display)
+  , ("error", error') ]

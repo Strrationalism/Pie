@@ -3,7 +3,7 @@
 module AST where
 
 import Data.SExpresso.SExpr (SExpr (SAtom, SList))
-import Error (WithErrorInfo (WithErrorInfo), unError)
+import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
 
 -- Types
 
@@ -65,6 +65,11 @@ pattern PieExprEmpty = PieExprList []
 
 pattern PieExprList1 :: PieExpr -> [PieExpr] -> PieExpr
 pattern PieExprList1 x xs = PieExprList (x:xs)
+
+pattern PieExprList1WithErrorInfo ::
+  PieExpr -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
+pattern PieExprList1WithErrorInfo x err xs <-
+  PieExprList (x@(PieExprAtom (WithErrorInfo _ err)) : xs)
 
 pattern PieExprList1Symbol :: String -> [PieExpr] -> PieExpr
 pattern PieExprList1Symbol x xs <- PieExprList1 (PieExprSymbol x) xs
