@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE PatternSynonyms #-}
 module Eval
   ( PieEval ( PieEval )
   , evalExpr
@@ -17,8 +16,9 @@ import Control.Monad (ap)
 import Data.Maybe (fromMaybe, catMaybes)
 import Error
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import System.Exit (exitFailure)
 import Data.Foldable (foldl')
+import Data.Data (Typeable)
+import Control.Exception (Exception, throw)
 
 -- Pie Eval Monad
 
@@ -42,6 +42,7 @@ data PieEvalError = PieEvalError
   { pieEvalErrorContext :: PieEvalContext
   , pieEvalErrorMessage :: String
   , pieEvalErrorFileInfo :: Maybe ErrorInfo }
+  deriving (Typeable)
 
 instance Show PieEvalError where
   show err = unlines $ foldl' (\a b -> a ++ [""] ++ b) [] $ catMaybes infos
@@ -54,6 +55,8 @@ instance Show PieEvalError where
             \(WithErrorInfo func errInfo') ->
               makeIndent 1 ++
               func ++ maybe "" (\x -> "\t(" ++ show x ++ ")") errInfo'
+
+instance Exception PieEvalError
 
 getContext :: PieEval PieEvalContext
 getContext = PieEval pure
@@ -101,8 +104,7 @@ runtimeError' errInfo msg = do
   let err = PieEvalError { pieEvalErrorContext = ctx
                          , pieEvalErrorMessage = msg
                          , pieEvalErrorFileInfo = errInfo }
-  liftIO $ print err
-  liftIO exitFailure
+  liftIO $ throw err
 
 -- Eval
 
