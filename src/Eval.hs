@@ -6,6 +6,8 @@ module Eval
   , getContext
   , lookupEnv
   , runInEnv
+  , runWithDefinesSyntax
+  , runWithDefineSyntax
   , fail
   , runtimeError'
   , tryLookupEnv
@@ -146,7 +148,8 @@ runWithDefineSyntax [PieExprAtom (UnError (PieSymbol name)), body] c =
 runWithDefineSyntax [PieExprList1Symbol funcName params, body] c = do
   env <- pieEvalContextEnv <$> getContext
   params' <- mapM getSymbol params
-  let func = PieLambda (Just funcName) params' body env
+  let recSelf = (funcName, noErrorInfo func)
+      func = PieLambda (Just funcName) params' body (recSelf:env)
   runWithNewVar funcName (noErrorInfo func) c
 runWithDefineSyntax _ _ = fail "Invalid define syntax."
 

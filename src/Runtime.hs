@@ -44,10 +44,19 @@ if' _ = invalidArg
 do' :: PieSyntax
 do' = fmap PieExprAtom . evalStatements
 
+let' :: PieSyntax
+let' [] = fail "Invalid let syntax."
+let' args =
+  let bindings = init args
+      expr = last args
+      result = runWithDefinesSyntax bindings $ evalExpr expr
+  in PieExprAtom <$> result
+
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
-  , ("do", do') ]
+  , ("do", do')
+  , ("let", let') ]
 
 
 -- Functions
