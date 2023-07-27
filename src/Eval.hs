@@ -1,29 +1,44 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE PatternSynonyms #-}
-module Eval where
+module Eval
+  ( PieEval ( PieEval )
+  , getContext
+  , tryLookupEnv
+  , lookupEnv
+  , runInEnv
+  , unwrapEval
+  , runtimeError
+  , runtimeError'
+  , evalExpr
+  , evalStatements ) where
 
 import AST
 import Control.Monad (ap, forM_)
 import Data.Maybe (fromMaybe)
 import Error
-import GHC.IO (unsafePerformIO)
 import System.Exit (exitWith, ExitCode (ExitFailure))
+import Control.Monad.IO.Class (MonadIO (liftIO))
 
 -- Pie Eval Monad
 
-newtype PieEval r = PieEval (PieEvalContext -> r) deriving (Functor)
+newtype PieEval r = PieEval (PieEvalContext -> IO r) deriving (Functor)
 
 instance Applicative PieEval where
-  pure = PieEval . const
+  pure = PieEval . const . pure
   ( <*> ) = ap
 
 instance Monad PieEval where
   return = pure
-  (PieEval x) >>= f = PieEval $ \ctx ->
-    let (PieEval y) = f $ x ctx in y ctx
+  (PieEval x) >>= f = PieEval $ \ctx -> do
+    y <- x ctx
+    let (PieEval y') = f y
+    y' ctx
+
+instance MonadIO PieEval where
+  liftIO = PieEval . const
 
 getContext :: PieEval PieEvalContext
-getContext = PieEval id
+getContext = PieEval pure
 
 tryLookupEnv :: String -> PieEval (Maybe PieValue)
 tryLookupEnv name = lookup name . pieEvalContextEnv <$> getContext
@@ -51,7 +66,7 @@ runInEnv env =
   runWithModifiedContext $ \x ->
     x { pieEvalContextEnv = env }
 
-unwrapEval :: PieEval r -> PieEvalContext -> r
+unwrapEval :: PieEval r -> PieEvalContext -> IO r
 unwrapEval (PieEval r) = r
 
 runtimeError :: String -> PieEval a
@@ -60,7 +75,7 @@ runtimeError = runtimeError' Nothing
 runtimeError' :: Maybe ErrorInfo -> String -> PieEval a
 runtimeError' errInfo msg = do
   callStack <- pieEvalContextCallStack <$> getContext
-  unsafePerformIO $ do
+  liftIO $ do
     putStrLn msg
     case errInfo of
       Nothing -> pure ()
@@ -97,7 +112,8 @@ evalExpr (PieExprList1 f args) = do
     PieHaskellFunction name f'' ->
       runWithCallStackFrame (WithErrorInfo name Nothing) $ do
         ctx <- getContext
-        evalExpr $ f'' args ctx
+        a <- liftIO $ f'' args ctx
+        evalExpr a
     x -> runtimeError' errInfo $ show x ++ " is not callable."
 evalExpr _ = undefined
 

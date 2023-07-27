@@ -22,7 +22,7 @@ data PieValue' = PieNumber Double
                | PieLambda (Maybe String) [String] PieExpr PieEnv
                | PieHaskellFunction
                   String
-                  ([PieExpr] -> PieEvalContext -> PieExpr)
+                  ([PieExpr] -> PieEvalContext -> IO PieExpr)
 
 instance Eq PieValue' where
   PieNumber n == PieNumber m = n == m
