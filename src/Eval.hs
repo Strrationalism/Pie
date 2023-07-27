@@ -16,8 +16,8 @@ import AST
 import Control.Monad (ap, forM_)
 import Data.Maybe (fromMaybe)
 import Error
-import System.Exit (exitWith, ExitCode (ExitFailure), exitFailure)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import System.Exit (exitFailure)
 
 -- Pie Eval Monad
 
@@ -65,6 +65,11 @@ runInEnv :: PieEnv -> PieEval r -> PieEval r
 runInEnv env =
   runWithModifiedContext $ \x ->
     x { pieEvalContextEnv = env }
+
+runWithNewVar :: String -> PieValue -> PieEval r -> PieEval r
+runWithNewVar name val =
+  runWithModifiedContext $ \x ->
+    x { pieEvalContextEnv = (name, val) : pieEvalContextEnv x }
 
 runEval :: PieEval r -> PieEvalContext -> IO r
 runEval (PieEval r) = r
@@ -119,46 +124,32 @@ evalExpr (PieExprList1WithErrorInfo f errInfo args) = do
     x -> runtimeError' errInfo $ show x ++ " is not callable."
 evalExpr _ = undefined
 
-pattern PieExprDefine :: String -> PieExpr -> PieExpr
-pattern PieExprDefine v body <-
-  PieExprList1Symbol "define" [PieExprAtom (UnError (PieSymbol v)), body]
-
-pattern PieExprDefines :: [PieExpr] -> PieExpr
-pattern PieExprDefines bindings <-
-  PieExprList1Symbol "defines" bindings
-
-runWithDefine :: String -> PieExpr -> PieEval r -> PieEval r
-runWithDefine name expr cont = do
-  val <- evalExpr expr
-  env <- pieEvalContextEnv <$> getContext
-  runInEnv ((name, val) : env) cont
-
-runWithDefines :: [(String, PieExpr)] -> PieEval r -> PieEval r
-runWithDefines [] k = k
-runWithDefines ((name, val):xs) k =
-  runWithDefine name val $ runWithDefines xs k
-
-pattern PieExprBinding :: String -> PieExpr -> PieExpr
-pattern PieExprBinding name body <- PieExprList1Symbol name [body]
+getSymbol :: PieExpr -> PieEval String
+getSymbol (PieExprAtom (UnError (PieSymbol x))) = pure x
+getSymbol x = fail $ "Expected a symbol, got " ++ prettyPrintExpr x ++ "."
 
 runWithDefineSyntax :: [PieExpr] -> PieEval r -> PieEval r
-runWithDefineSyntax xs k = do
-  bindings <- mapM extractBinding xs
-  runWithDefines bindings k
-  where extractBinding (PieExprBinding name body) = pure (name, body)
-        extractBinding x =
-          fail $ "Invalid binding expression: " ++ show x
+runWithDefineSyntax [PieExprAtom (UnError (PieSymbol name)), body] c =
+  evalExpr body >>= \body' -> runWithNewVar name body' c
+runWithDefineSyntax [PieExprList1Symbol funcName params, body] c = do
+  env <- pieEvalContextEnv <$> getContext
+  params' <- mapM getSymbol params
+  let func = PieLambda (Just funcName) params' body env
+  runWithNewVar funcName (noErrorInfo func) c
+runWithDefineSyntax _ _ = fail "Invalid define syntax."
+
+runWithDefinesSyntax :: [PieExpr] -> PieEval r -> PieEval r
+runWithDefinesSyntax [] = id
+runWithDefinesSyntax (PieExprList xs:y) =
+  runWithDefineSyntax xs . runWithDefinesSyntax y
+runWithDefinesSyntax _ = const $ fail "Invalid define syntax."
 
 evalStatements :: [PieExpr] -> PieEval PieValue
 evalStatements [] = return $ noErrorInfo PieNil
-evalStatements ((PieExprDefine name body):cont) =
-  runWithDefine name body $ evalStatements cont
-evalStatements ((PieExprDefines bindings):k) =
-  runWithDefineSyntax bindings $ evalStatements k
-evalStatements ((PieExprList1Symbol "define" _):_) =
-  fail "Invalid define."
-evalStatements ((PieExprList1Symbol "defines" _): _) =
-  fail "Invalid defines."
+evalStatements ((PieExprList1Symbol "define" binding):k) =
+  runWithDefineSyntax binding $ evalStatements k
+evalStatements ((PieExprList1Symbol "defines" bindings):k) =
+  runWithDefinesSyntax bindings $ evalStatements k
 evalStatements [x] = evalExpr x
 evalStatements (x:xs) = evalExpr x >> evalStatements xs
 
