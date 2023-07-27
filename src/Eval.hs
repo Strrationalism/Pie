@@ -2,15 +2,15 @@
 {-# LANGUAGE PatternSynonyms #-}
 module Eval
   ( PieEval ( PieEval )
+  , evalExpr
+  , evalStatements
   , getContext
-  , tryLookupEnv
   , lookupEnv
   , runInEnv
-  , unwrapEval
   , runtimeError
   , runtimeError'
-  , evalExpr
-  , evalStatements ) where
+  , tryLookupEnv
+  , unwrapEval ) where
 
 import AST
 import Control.Monad (ap, forM_)
