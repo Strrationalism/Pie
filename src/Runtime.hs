@@ -243,7 +243,7 @@ functions =
   , ("car", car)
   , ("cdr", cdr)
   , ("cons", cons)
-  , ("make-var", makeVar)
+  , ("var", makeVar)
   , ("get-var", getVar)
   , ("set-var", setVar)
   ]
