@@ -38,8 +38,11 @@ if' [condition, a, b] = do
   case c of
     (UnError (PieBool True)) -> return a
     (UnError (PieBool False)) -> return b
-    _ -> invalidArg
-if' _ = invalidArg
+    _ -> fail "Invalid if syntax."
+if' [condition, a] = do
+  pure $ PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "if")
+    [ condition, a, PieExprAtom $ noErrorInfo PieNil ]
+if' _ = fail "Invalid if syntax."
 
 do' :: PieSyntax
 do' = fmap PieExprAtom . evalStatements
@@ -52,13 +55,23 @@ let' args =
       result = runWithDefinesSyntax bindings $ evalExpr expr
   in PieExprAtom <$> result
 
--- cond
+cond :: PieSyntax
+cond [PieExprList [condition, body], else'] =
+  pure $ PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "if")
+    [ condition, body, else' ]
+cond (PieExprList [condition, body] : others) =
+  pure $ PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "if")
+    [ condition
+    , body
+    , PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "cond") others]
+cond _ = fail "Invalid cond syntax."
 
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
   , ("do", do')
-  , ("let", let') ]
+  , ("let", let')
+  , ("cond", cond) ]
 
 
 -- Functions
