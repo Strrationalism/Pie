@@ -20,7 +20,7 @@ type PieParser = Parsec Void Text
 numberParser :: PieParser Double
 numberParser = do
   sign <- optional $ (: []) <$> char '-'
-  x <- oneOf ['1' .. '9']
+  x <- oneOf ['0' .. '9']
   a <- many digitChar
   b <- optional $ char '.' *> (some digitChar <|> return "0")
   return $ read $ fromMaybe "" sign ++ [x] ++ a ++ maybe "" ('.' :) b
@@ -35,8 +35,8 @@ hexNumberParser = do
 
 pieNumberParser :: PieParser PieValue'
 pieNumberParser = PieNumber <$> innerParser
-  where innerParser = choice [ try numberParser
-                             , fromIntegral <$> hexNumberParser ]
+  where innerParser = choice [ try (fromIntegral <$> hexNumberParser)
+                             , numberParser ]
 
 symbolParser :: PieParser String
 symbolParser = do

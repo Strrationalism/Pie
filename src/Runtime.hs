@@ -8,8 +8,8 @@ import Data.Bifunctor (second)
 import Error
 import Eval
 import Data.Fixed (mod')
-import Data.Foldable (foldl')
-import Control.Monad (zipWithM)
+import Data.Foldable (foldl', forM_)
+import Control.Monad (zipWithM, when)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -60,9 +60,9 @@ let' args =
   in PieExprAtom <$> result
 
 cond :: PieSyntax
-cond [PieExprList [condition, body], else'] =
+cond [PieExprList [condition, body]] =
   pure $ PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "if")
-    [ condition, body, else' ]
+    [ condition, body, PieExprAtom $ noErrorInfo PieNil ]
 cond (PieExprList [condition, body] : others) =
   pure $ PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "if")
     [ condition
@@ -70,20 +70,33 @@ cond (PieExprList [condition, body] : others) =
     , PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "cond") others]
 cond _ = fail "Invalid cond syntax."
 
+foreach :: PieSyntax
+foreach (PieExprAtom (UnError (PieSymbol i)) : range : body) = do
+  range' <- evalExpr range
+  case range' of
+    (UnError (PieList ls)) ->
+      forM_ (map noErrorInfo ls) (\v ->
+        runWithNewVar i v $ evalStatements body)
+      >> pure (PieExprAtom $ noErrorInfo PieNil)
+    _ -> fail "Invalid foreach syntax."
+foreach _ = fail "Invalid foreach syntax."
+
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
   , ("do", do')
   , ("let", let')
-  , ("cond", cond) ]
-
--- foreach
+  , ("cond", cond)
+  , ("foreach", foreach) ]
 
 
 -- Functions
 
 display :: PieFunc
-display args = liftIO $ putStrLn (list2String args) >> pure PieNil
+display args = do
+  enabled <- pieEvalContextPrintEnabled <$> getContext
+  when enabled $ liftIO $ putStrLn (list2String args)
+  >> pure PieNil
 
 error' :: PieFunc
 error' = fail . list2String

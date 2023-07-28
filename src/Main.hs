@@ -11,7 +11,8 @@ runFromFile path = do
   result <- parseFromFile path
   case result of
     Left x -> putStrLn x
-    Right y -> void $ runEval (evalStatements y) $ PieEvalContext runtime []
+    Right y -> void $ runEval (evalStatements y) $
+                PieEvalContext runtime [] True
 
 
 main :: IO ()

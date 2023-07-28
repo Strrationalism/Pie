@@ -8,6 +8,7 @@ module Eval
   , runInEnv
   , runWithDefinesSyntax
   , runWithDefineSyntax
+  , runWithNewVar
   , fail
   , runtimeError'
   , tryLookupEnv

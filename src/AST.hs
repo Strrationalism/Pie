@@ -4,6 +4,7 @@ module AST where
 
 import Data.SExpresso.SExpr (SExpr (SAtom, SList))
 import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
+import GHC.Float.RealFracMethods (properFractionDoubleInt)
 
 -- Types
 
@@ -12,7 +13,7 @@ type PieEnv = [(String, PieValue)]
 data PieEvalContext = PieEvalContext
   { pieEvalContextEnv :: PieEnv
   , pieEvalContextCallStack :: [WithErrorInfo String]
-  }
+  , pieEvalContextPrintEnabled :: Bool }
 
 data PieValue' = PieNumber Double
                | PieBool Bool
@@ -36,7 +37,10 @@ instance Eq PieValue' where
   _ == _ = False
 
 instance Show PieValue' where
-  show (PieNumber x) = show x
+  show (PieNumber x) =
+    case properFractionDoubleInt x of
+      (x', 0) -> show x'
+      _ -> show x
   show (PieList ls) = "(" ++ unwords (map show ls) ++ ")"
   show (PieBool True) = "true"
   show (PieBool False) = "false"
