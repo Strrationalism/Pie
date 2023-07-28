@@ -13,6 +13,9 @@ import Control.Monad (zipWithM, when)
 import Data.Traversable (forM)
 import Control.Concurrent (newMVar, readMVar)
 import Control.Concurrent.MVar (swapMVar)
+import System.Process (readCreateProcessWithExitCode, shell)
+import System.Exit (ExitCode(ExitSuccess))
+import GHC.IO.Exception (ExitCode(ExitFailure))
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -194,9 +197,20 @@ getVar _ = invalidArg
 setVar :: PieFunc
 setVar [UnError (PieVar m), UnError v] = liftIO $ swapMVar m v
 setVar _ = invalidArg
--- set-var
--- shell
--- shell'
+
+shell'' :: PieFunc
+shell'' args = do
+  let shellCommand = list2String args
+  (exitCode, out, err) <-
+    liftIO $ readCreateProcessWithExitCode (shell shellCommand) ""
+  case exitCode of
+    ExitFailure exitCode' ->
+      fail $
+        "Command \"" ++ shellCommand ++ "\" failed, exit code: " ++
+        show exitCode' ++ "\n\n" ++ "StdOut:\n" ++ makeIndent 1 ++ out ++
+        "\n\n" ++ "StdErr:\n" ++ makeIndent 1 ++ err
+    ExitSuccess -> pure $ PieString out
+
 -- files
 -- dirs
 -- path
@@ -246,4 +260,5 @@ functions =
   , ("var", makeVar)
   , ("get-var", getVar)
   , ("set-var", setVar)
+  , ("shell", shell'')
   ]
