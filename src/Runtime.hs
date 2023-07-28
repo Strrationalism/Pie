@@ -11,6 +11,8 @@ import Data.Fixed (mod')
 import Data.Foldable (foldl', forM_)
 import Control.Monad (zipWithM, when)
 import Data.Traversable (forM)
+import Control.Concurrent (newMVar, readMVar)
+import Control.Concurrent.MVar (swapMVar)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -171,8 +173,8 @@ cdr [UnError (PieString (_:xs))] = pure $ PieString xs
 cdr _ = invalidArg
 
 cons :: PieFunc
-cons xs@(_:_) =
-  case (init xs, last xs) of
+cons xs'@(_:_) =
+  case (init xs', last xs') of
     (a, UnError (PieList xs)) -> pure $ PieList $ map unError a ++ xs
     (a, UnError (PieString xs)) -> do
       str <- forM a $ \case (UnError (PieNumber x)) -> pure x; _ -> invalidArg
@@ -181,10 +183,18 @@ cons xs@(_:_) =
     _ -> invalidArg
 cons _ = invalidArg
 
+makeVar :: PieFunc
+makeVar [UnError v] = PieVar <$> liftIO (newMVar v)
+makeVar _ = invalidArg
 
--- make-var
+getVar :: PieFunc
+getVar [UnError (PieVar m)] = liftIO $ readMVar m
+getVar _ = invalidArg
+
+setVar :: PieFunc
+setVar [UnError (PieVar m), UnError v] = liftIO $ swapMVar m v
+setVar _ = invalidArg
 -- set-var
--- get-var
 -- shell
 -- shell'
 -- files
@@ -233,4 +243,7 @@ functions =
   , ("car", car)
   , ("cdr", cdr)
   , ("cons", cons)
+  , ("make-var", makeVar)
+  , ("get-var", getVar)
+  , ("set-var", setVar)
   ]

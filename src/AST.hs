@@ -5,6 +5,8 @@ module AST where
 import Data.SExpresso.SExpr (SExpr (SAtom, SList))
 import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
 import GHC.Float.RealFracMethods (properFractionDoubleInt)
+import Control.Concurrent (MVar, readMVar)
+import GHC.IO (unsafePerformIO)
 
 -- Types
 
@@ -21,6 +23,7 @@ data PieValue' = PieNumber Double
                | PieSymbol String
                | PieList [PieValue']
                | PieNil
+               | PieVar (MVar PieValue')
                | PieLambda (Maybe String) [String] PieExpr PieEnv
                | PieHaskellFunction
                   String
@@ -46,6 +49,7 @@ instance Show PieValue' where
   show (PieBool False) = "false"
   show (PieString s) = show s
   show (PieSymbol s) = s
+  show (PieVar m) = "(var " ++ show (unsafePerformIO (readMVar m)) ++ ")"
   show PieNil = "()"
   show (PieLambda _ a b _) =
     "(lambda (" ++ unwords a ++ ") " ++ prettyPrintExpr b ++ ")"
