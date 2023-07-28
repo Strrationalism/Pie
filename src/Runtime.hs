@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 module Runtime ( runtime ) where
 
 import AST
@@ -6,6 +7,8 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Bifunctor (second)
 import Error
 import Eval
+import Data.Fixed (mod')
+import Data.Foldable (foldl')
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -85,9 +88,38 @@ error' = fail . list2String
 list :: PieFunc
 list = pure . PieList . fmap unError
 
+isTypeOf :: (PieValue' -> Bool) -> PieFunc
+isTypeOf _ [] = pure $ PieBool False
+isTypeOf c a = pure $ PieBool $ all (c . unError) a
+
+numericOperator :: (Double -> Double -> Double) -> PieFunc
+numericOperator _ [UnError (PieNumber x)] = pure $ PieNumber x
+numericOperator f [UnError (PieNumber x), UnError (PieNumber y)] =
+  pure $ PieNumber $ f x y
+numericOperator f ((UnError (PieNumber x)) : (UnError (PieNumber y) : xs)) =
+  numericOperator f (noErrorInfo (PieNumber $ f x y) : xs)
+numericOperator _ _ = invalidArg
+
+booleanOperator :: (Bool -> Bool -> Bool) -> PieFunc
+booleanOperator f (UnError (PieBool x):xs) = do
+  let getBool (UnError (PieBool x)) = pure x
+      getBool _ = invalidArg
+  booleans <- mapM getBool xs
+  pure $ PieBool $ foldl' f x booleans
+booleanOperator _ _ = invalidArg
+
+not' :: PieFunc
+not' [UnError (PieBool b)] = pure $ PieBool $ not b
+not' _ = invalidArg
+
+-- car (list/string)
+-- cdr (list/string)
+-- cons (list/string)
+-- invoke
+
 -- make-var
--- set-var!
--- get-var!
+-- set-var
+-- get-var
 -- shell
 -- shell'
 -- files
@@ -96,14 +128,6 @@ list = pure . PieList . fmap unError
 -- ext
 -- filename
 -- http
--- eval
--- invoke
--- +/-/*///%
--- car (list/string)
--- cdr (list/string)
--- cons (list/string)
--- and/or/not
--- nil?/string?/number?/list?/function?
 -- write-text
 -- change-extension
 -- file-exists
@@ -117,4 +141,19 @@ functions :: [(String, PieFunc)]
 functions =
   [ ("display", display)
   , ("error", error')
-  , ("list", list) ]
+  , ("list", list)
+  , ("nil?", isTypeOf (== PieNil))
+  , ("list?", isTypeOf $ \case PieList _ -> True; _ -> False)
+  , ("number?", isTypeOf $ \case PieNumber _ -> True; _ -> False)
+  , ("bool?", isTypeOf $ \case PieBool _ -> True; _ -> False)
+  , ("string?", isTypeOf $ \case PieString _ -> True; _ -> False)
+  , ("function?", isTypeOf $ \case PieLambda {} -> True; PieHaskellFunction _ _ -> True; _ -> False)
+  , ("+", numericOperator (+))
+  , ("-", numericOperator (-))
+  , ("*", numericOperator (*))
+  , ("/", numericOperator (/))
+  , ("%", numericOperator mod')
+  , ("and", booleanOperator (&&))
+  , ("or", booleanOperator (||))
+  , ("not", not')
+  ]
