@@ -211,6 +211,10 @@ shell'' args = do
         "\n\n" ++ "StdErr:\n" ++ makeIndent 1 ++ err
     ExitSuccess -> pure $ PieString out
 
+-- lines
+-- unlines
+-- words
+-- unwords
 -- files
 -- dirs
 -- path
