@@ -73,11 +73,15 @@ cond _ = fail "Invalid cond syntax."
 foreach :: PieSyntax
 foreach (PieExprAtom (UnError (PieSymbol i)) : range : body) = do
   range' <- evalExpr range
+  let f v = runWithNewVar i v $ evalStatements body
+      nil = pure (PieExprAtom $ noErrorInfo PieNil)
   case range' of
     (UnError (PieList ls)) ->
-      forM_ (map noErrorInfo ls) (\v ->
-        runWithNewVar i v $ evalStatements body)
-      >> pure (PieExprAtom $ noErrorInfo PieNil)
+      forM_ (map noErrorInfo ls) f
+      >> nil
+    (UnError (PieString str)) ->
+      forM_ (map (noErrorInfo . PieNumber . fromIntegral . fromEnum) str) f
+      >> nil
     _ -> fail "Invalid foreach syntax."
 foreach _ = fail "Invalid foreach syntax."
 
@@ -97,9 +101,6 @@ display args = do
   enabled <- pieEvalContextPrintEnabled <$> getContext
   when enabled $ liftIO $ putStrLn (list2String args)
   >> pure PieNil
-
-error' :: PieFunc
-error' = fail . list2String
 
 list :: PieFunc
 list = pure . PieList . fmap unError
@@ -178,7 +179,7 @@ add _ = invalidArg
 functions :: [(String, PieFunc)]
 functions =
   [ ("display", display)
-  , ("error", error')
+  , ("error", fail . list2String)
   , ("list", list)
   , ("nil?", isTypeOf (== PieNil))
   , ("list?", isTypeOf $ \case PieList _ -> True; _ -> False)
@@ -200,4 +201,6 @@ functions =
   , (">=", comparisonOperator' (>=))
   , ("<", comparisonOperator' (<))
   , ("<=", comparisonOperator' (<=))
+  , ("to-string", pure . PieString . list2String)
+  , ("invalid-arg", const invalidArg)
   ]
