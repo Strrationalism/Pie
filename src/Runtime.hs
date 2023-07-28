@@ -9,6 +9,7 @@ import Error
 import Eval
 import Data.Fixed (mod')
 import Data.Foldable (foldl')
+import Control.Monad (zipWithM)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -102,11 +103,24 @@ numericOperator _ _ = invalidArg
 
 booleanOperator :: (Bool -> Bool -> Bool) -> PieFunc
 booleanOperator f (UnError (PieBool x):xs) = do
-  let getBool (UnError (PieBool x)) = pure x
+  let getBool (UnError (PieBool a)) = pure a
       getBool _ = invalidArg
   booleans <- mapM getBool xs
   pure $ PieBool $ foldl' f x booleans
 booleanOperator _ _ = invalidArg
+
+comparisonOperator :: (PieValue' -> PieValue' -> PieEval Bool) -> PieFunc
+comparisonOperator f (x1:x2:xs) =
+  let xs' = map unError $ x1:x2:xs
+      booleans = zipWithM f (init xs') (tail xs')
+      result = fmap and booleans in PieBool <$> result
+comparisonOperator _ _ = invalidArg
+
+comparisonOperator' :: (Double -> Double -> Bool) -> PieFunc
+comparisonOperator' f xs =
+  flip comparisonOperator xs $ curry $
+    \case (PieNumber a, PieNumber b) -> pure $ f a b
+          _ -> invalidArg
 
 not' :: PieFunc
 not' [UnError (PieBool b)] = pure $ PieBool $ not b
@@ -156,4 +170,10 @@ functions =
   , ("and", booleanOperator (&&))
   , ("or", booleanOperator (||))
   , ("not", not')
+  , ("eq", comparisonOperator $ \a b -> pure $ a == b)
+  , ("ne", comparisonOperator $ \a b -> pure $ a /= b)
+  , (">", comparisonOperator' (>))
+  , (">=", comparisonOperator' (>=))
+  , ("<", comparisonOperator' (<))
+  , ("<=", comparisonOperator' (<=))
   ]
