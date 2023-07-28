@@ -10,6 +10,7 @@ import Eval
 import Data.Fixed (mod')
 import Data.Foldable (foldl', forM_)
 import Control.Monad (zipWithM, when)
+import Data.Traversable (forM)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -82,6 +83,7 @@ foreach (PieExprAtom (UnError (PieSymbol i)) : range : body) = do
     (UnError (PieString str)) ->
       forM_ (map (noErrorInfo . PieNumber . fromIntegral . fromEnum) str) f
       >> nil
+    (UnError PieNil) -> nil
     _ -> fail "Invalid foreach syntax."
 foreach _ = fail "Invalid foreach syntax."
 
@@ -145,16 +147,40 @@ not' _ = invalidArg
 add :: PieFunc
 add x@(UnError (PieNumber _):_) = numericOperator (+) x
 add x@(UnError (PieList _):_) = do
-  lists <- mapM (\case (UnError (PieList ls)) -> pure ls; _ -> invalidArg) x
+  lists <- mapM (\case (UnError (PieList ls)) -> pure ls; (UnError PieNil) -> pure []; _ -> invalidArg) x
   pure $ PieList $ concat lists
 add x@(UnError (PieString _):_) = do
-  strings <- mapM (\case (UnError (PieString ls)) -> pure ls; _ -> invalidArg) x
+  strings <- mapM (\case (UnError (PieString ls)) -> pure ls; (UnError PieNil) -> pure []; _ -> invalidArg) x
   pure $ PieString $ concat strings
 add _ = invalidArg
 
--- car (list/string)
--- cdr (list/string)
--- cons (list/string)
+isEmpty :: PieFunc
+isEmpty [UnError (PieString s)] = pure $ PieBool $ null s
+isEmpty [UnError (PieList s)] = pure $ PieBool $ null s
+isEmpty [UnError PieNil] = pure $ PieBool True
+isEmpty _ = invalidArg
+
+car :: PieFunc
+car [UnError (PieList (x:_))] = pure x
+car [UnError (PieString (x:_))] = pure $ PieNumber $ fromIntegral $ fromEnum x
+car _ = invalidArg
+
+cdr :: PieFunc
+cdr [UnError (PieList (_:xs))] = pure $ PieList xs
+cdr [UnError (PieString (_:xs))] = pure $ PieString xs
+cdr _ = invalidArg
+
+cons :: PieFunc
+cons xs@(_:_) =
+  case (init xs, last xs) of
+    (a, UnError (PieList xs)) -> pure $ PieList $ map unError a ++ xs
+    (a, UnError (PieString xs)) -> do
+      str <- forM a $ \case (UnError (PieNumber x)) -> pure x; _ -> invalidArg
+      pure $ PieString $ map (toEnum . round) str ++ xs
+    (a, UnError PieNil) -> pure $ PieList $ map unError a
+    _ -> invalidArg
+cons _ = invalidArg
+
 
 -- make-var
 -- set-var
@@ -187,6 +213,7 @@ functions =
   , ("bool?", isTypeOf $ \case PieBool _ -> True; _ -> False)
   , ("string?", isTypeOf $ \case PieString _ -> True; _ -> False)
   , ("function?", isTypeOf $ \case PieLambda {} -> True; PieHaskellFunction _ _ -> True; _ -> False)
+  , ("empty?", isEmpty)
   , ("+", add)
   , ("-", numericOperator (-))
   , ("*", numericOperator (*))
@@ -203,4 +230,7 @@ functions =
   , ("<=", comparisonOperator' (<=))
   , ("to-string", pure . PieString . list2String)
   , ("invalid-arg", const invalidArg)
+  , ("car", car)
+  , ("cdr", cdr)
+  , ("cons", cons)
   ]
