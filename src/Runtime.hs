@@ -77,6 +77,8 @@ syntaxes =
   , ("let", let')
   , ("cond", cond) ]
 
+-- foreach
+
 
 -- Functions
 
@@ -126,10 +128,19 @@ not' :: PieFunc
 not' [UnError (PieBool b)] = pure $ PieBool $ not b
 not' _ = invalidArg
 
+add :: PieFunc
+add x@(UnError (PieNumber _):_) = numericOperator (+) x
+add x@(UnError (PieList _):_) = do
+  lists <- mapM (\case (UnError (PieList ls)) -> pure ls; _ -> invalidArg) x
+  pure $ PieList $ concat lists
+add x@(UnError (PieString _):_) = do
+  strings <- mapM (\case (UnError (PieString ls)) -> pure ls; _ -> invalidArg) x
+  pure $ PieString $ concat strings
+add _ = invalidArg
+
 -- car (list/string)
 -- cdr (list/string)
 -- cons (list/string)
--- invoke
 
 -- make-var
 -- set-var
@@ -162,7 +173,7 @@ functions =
   , ("bool?", isTypeOf $ \case PieBool _ -> True; _ -> False)
   , ("string?", isTypeOf $ \case PieString _ -> True; _ -> False)
   , ("function?", isTypeOf $ \case PieLambda {} -> True; PieHaskellFunction _ _ -> True; _ -> False)
-  , ("+", numericOperator (+))
+  , ("+", add)
   , ("-", numericOperator (-))
   , ("*", numericOperator (*))
   , ("/", numericOperator (/))
