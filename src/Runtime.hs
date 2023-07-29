@@ -15,7 +15,7 @@ import Data.Foldable (foldl', forM_)
 import Data.List (dropWhileEnd)
 import Data.Maybe (isJust)
 import Data.Ord (clamp)
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Data.Traversable (forM)
 import Error
 import Eval
@@ -154,6 +154,13 @@ display args = do
   enabled <- pieEvalContextPrintEnabled <$> getContext
   when enabled $ liftIO $ putStrLn (list2String args)
   >> pure PieNil
+
+trace' :: PieFunc
+trace' [x] = do
+  enabled <- pieEvalContextPrintEnabled <$> getContext
+  when enabled $ liftIO $ putStrLn $ valueToString x
+  pure $ unError x
+trace' _ = invalidArg
 
 list :: PieFunc
 list = pure . PieList . fmap unError
@@ -501,21 +508,41 @@ evalPieFunc pieCode =
   let func = PieExprAtom $ evalPieCodeUnsafe pieCode runtime in
     \args -> unError <$> evalExpr (PieExprList1 func $ fmap PieExprAtom args)
 
+evalPieLambda :: [String] -> String -> PieFunc
+evalPieLambda params body = evalPieFunc $ pack $
+  "(rec (lambda (self) (lambda (" ++ unwords params ++ ") " ++ body ++ ")))"
+
+map' :: PieFunc
+map' = evalPieLambda ["f", "ls"] $
+  "(if (empty? ls) " ++
+    "(cond ((list? ls) (list)) ((string? ls) \"\") (true (invalid-arg))) " ++
+    "(cons " ++
+      "(f (car ls)) " ++
+      "((self) f (cdr ls))))"
+
+filter' :: PieFunc
+filter' = evalPieLambda ["f", "ls"] $
+  "(if (empty? ls) " ++
+    "(cond ((list? ls) (list)) ((string? ls) \"\") (true (invalid-arg))) " ++
+    "(do " ++
+      "(defines (x (car ls)) " ++
+               "(xs ((self) f (cdr ls)))) " ++
+      "(if (f x) (cons x xs) xs)))"
+
+flatMap' :: PieFunc
+flatMap' = evalPieLambda ["f", "ls"]
+  "(concat (map f ls))"
+
+exists' :: PieFunc
+exists' = evalPieLambda ["f", "ls"] $
+  "(if (empty? ls) false " ++
+    "(if (f (car ls)) true ((self) f (cdr ls))))"
+
+
 
 -- stdlib
-  -- minBy
-  -- maxBy
-  -- map
-  -- fold
-  -- flatMap
-  -- filter
-  -- find
-  -- generate
-  -- exists
   -- take-while
   -- skip-while
-  -- reduce
-  -- unfold
   -- sort-with
   -- sort-by
   -- sort
@@ -524,6 +551,7 @@ evalPieFunc pieCode =
 functions :: [(String, PieFunc)]
 functions =
   [ ("display", display)
+  , ("trace", trace')
   , ("error", fail . list2String)
   , ("list", list)
   , ("nil?", isTypeOf (== PieNil))
@@ -611,4 +639,8 @@ functions =
   , ("string-trim-start", mapString $ dropWhile isSpace)
   , ("string-trim-end", mapString $ dropWhileEnd isSpace)
   , ("string-trim", mapString $ dropWhileEnd isSpace . dropWhile isSpace)
+  , ("map", map')
+  , ("filter", filter')
+  , ("flatMap", flatMap')
+  , ("exists", exists')
   ]

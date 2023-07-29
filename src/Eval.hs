@@ -64,7 +64,9 @@ instance Show PieEvalError where
           callStackInfo = Just $ ("Call Stacks:" :) $ flip map callStack $
             \(WithErrorInfo func errInfo') ->
               makeIndent 1 ++
-              func ++ maybe "" (\x -> "\t(" ++ show x ++ ")") errInfo'
+              func ++ maybe "" (\x -> pad func ++ "\t(" ++ show x ++ ")") errInfo'
+          pad str = take (printCallStackFuncPadding - length str) $ cycle " "
+          printCallStackFuncPadding = 8
 
 instance Exception PieEvalError
 
@@ -141,7 +143,7 @@ evalExpr (PieExprList1AtomWithErrorInfo f errInfo args) = do
             Left param -> pure $
               (param, noErrorInfo $ PieList $ map unError args') : env
       runInEnv newEnv $ runWithCallStackFrame
-          (WithErrorInfo (fromMaybe "" name) errInfo)
+          (WithErrorInfo (fromMaybe "<lambda>" name) errInfo)
           (evalStatements body)
     PieHaskellFunction name f'' ->
       runWithCallStackFrame (WithErrorInfo name errInfo) $ do
