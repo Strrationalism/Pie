@@ -515,7 +515,7 @@ evalPieLambda params body = evalPieFunc $ pack $
 map' :: PieFunc
 map' = evalPieLambda ["f", "ls"] $
   "(if (empty? ls) " ++
-    "(cond ((list? ls) (list)) ((string? ls) \"\") (true (invalid-arg))) " ++
+    "ls " ++
     "(cons " ++
       "(f (car ls)) " ++
       "((self) f (cdr ls))))"
@@ -523,7 +523,7 @@ map' = evalPieLambda ["f", "ls"] $
 filter' :: PieFunc
 filter' = evalPieLambda ["f", "ls"] $
   "(if (empty? ls) " ++
-    "(cond ((list? ls) (list)) ((string? ls) \"\") (true (invalid-arg))) " ++
+    "ls " ++
     "(do " ++
       "(defines (x (car ls)) " ++
                "(xs ((self) f (cdr ls)))) " ++
@@ -537,8 +537,6 @@ exists' :: PieFunc
 exists' = evalPieLambda ["f", "ls"] $
   "(if (empty? ls) false " ++
     "(if (f (car ls)) true ((self) f (cdr ls))))"
-
-
 
 -- stdlib
   -- take-while
