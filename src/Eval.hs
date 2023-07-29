@@ -160,16 +160,21 @@ getSymbol :: PieExpr -> PieEval String
 getSymbol (PieExprAtom (UnError (PieSymbol x))) = pure x
 getSymbol x = fail $ "Expected a symbol, got " ++ prettyPrintExpr x ++ "."
 
-runWithDefineSyntax :: [PieExpr] -> PieEval r -> PieEval r
-runWithDefineSyntax [PieExprAtom (UnError (PieSymbol name)), body] c =
-  evalExpr body >>= \body' -> runWithNewVar name body' c
-runWithDefineSyntax [PieExprList1Symbol funcName params, body] c = do
+processDefineSyntax :: [PieExpr] -> PieEval (String, PieValue)
+processDefineSyntax [PieExprAtom (UnError (PieSymbol name)), body] =
+  evalExpr body >>= \body' -> pure (name, body')
+processDefineSyntax [PieExprList1Symbol funcName params, body] = do
   env <- pieEvalContextEnv <$> getContext
   params' <- mapM getSymbol params
   let recSelf = (funcName, noErrorInfo func)
       func = PieLambda (Just funcName) (Right params') [body] (recSelf:env)
-  runWithNewVar funcName (noErrorInfo func) c
-runWithDefineSyntax _ _ = fail "Invalid define syntax."
+  pure (funcName, noErrorInfo func)
+processDefineSyntax _ = fail "Invalid define syntax."
+
+runWithDefineSyntax :: [PieExpr] -> PieEval r -> PieEval r
+runWithDefineSyntax expr c = do
+  (name, val) <- processDefineSyntax expr
+  runWithNewVar name val c
 
 runWithDefinesSyntax :: [PieExpr] -> PieEval r -> PieEval r
 runWithDefinesSyntax [] = id
