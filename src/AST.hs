@@ -24,7 +24,11 @@ data PieValue' = PieNumber Double
                | PieList [PieValue']
                | PieNil
                | PieVar (MVar PieValue')
-               | PieLambda (Maybe String) [String] PieExpr PieEnv -- TODO:varargs
+               | PieLambda
+                  (Maybe String)
+                  (Either String [String])
+                  [PieExpr]
+                  PieEnv
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> IO PieExpr)
@@ -52,7 +56,8 @@ instance Show PieValue' where
   show (PieVar m) = "(var " ++ show (unsafePerformIO (readMVar m)) ++ ")"
   show PieNil = "()"
   show (PieLambda _ a b _) =
-    "(lambda (" ++ unwords a ++ ") " ++ prettyPrintExpr b ++ ")"
+    "(lambda " ++ either (++ " ") (\a' -> "(" ++ unwords a' ++ ") ") a ++
+    prettyPrintExprs b ++ ")"
   show (PieHaskellFunction x _) = "(lambda <" ++ x ++ ">)"
 
 type PieValue = WithErrorInfo PieValue'

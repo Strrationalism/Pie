@@ -121,16 +121,21 @@ evalExpr (PieExprList1Symbol "defines" _) = fail "Invalid defines."
 evalExpr (PieExprList1WithErrorInfo f errInfo args) = do
   f' <- evalExpr f
   case unError f' of
-    PieLambda name params body env ->
-      if length args /= length params
-        then runtimeError' errInfo $
-          "Invalid arguments for function" ++
-          maybe "" (" " ++) name ++ "."
-        else do
-          args' <- mapM evalExpr args
-          runInEnv (zip params args' ++ env) $
-            runWithCallStackFrame (WithErrorInfo (fromMaybe "" name) errInfo) $
-              evalExpr body
+    PieLambda name params body env -> do
+      args' <- mapM evalExpr args
+      newEnv <-
+          case params of
+            Right params' ->
+              if length args /= length params'
+                then runtimeError' errInfo $
+                  "Invalid arguments for function" ++
+                  maybe "" (" " ++) name ++ "."
+                else pure $ zip params' args' ++ env
+            Left param -> pure $
+              (param, noErrorInfo $ PieList $ map unError args') : env
+      runInEnv newEnv $ runWithCallStackFrame
+          (WithErrorInfo (fromMaybe "" name) errInfo)
+          (evalStatements body)
     PieHaskellFunction name f'' ->
       runWithCallStackFrame (WithErrorInfo name errInfo) $ do
         ctx <- getContext
@@ -150,7 +155,7 @@ runWithDefineSyntax [PieExprList1Symbol funcName params, body] c = do
   env <- pieEvalContextEnv <$> getContext
   params' <- mapM getSymbol params
   let recSelf = (funcName, noErrorInfo func)
-      func = PieLambda (Just funcName) params' body (recSelf:env)
+      func = PieLambda (Just funcName) (Right params') [body] (recSelf:env)
   runWithNewVar funcName (noErrorInfo func) c
 runWithDefineSyntax _ _ = fail "Invalid define syntax."
 

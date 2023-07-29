@@ -96,13 +96,28 @@ foreach (PieExprAtom (UnError (PieSymbol i)) : range : body) = do
     _ -> fail "Invalid foreach syntax."
 foreach _ = fail "Invalid foreach syntax."
 
+lambda :: PieSyntax
+lambda (PieExprAtom (UnError (PieSymbol param)) : body) = do
+  env' <- pieEvalContextEnv <$>  getContext
+  pure $ PieExprAtom $ noErrorInfo $
+    PieLambda Nothing (Left param) body env'
+lambda (PieExprList params : body) = do
+  env' <- pieEvalContextEnv <$>  getContext
+  params' <- forM params $ \case
+    (PieExprSymbol sym) -> pure sym
+    _ -> invalidArg
+  pure $ PieExprAtom $ noErrorInfo $
+    PieLambda Nothing (Right params') body env'
+lambda _ = invalidArg
+
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
   , ("do", do')
   , ("let", let')
   , ("cond", cond)
-  , ("foreach", foreach) ]
+  , ("foreach", foreach)
+  , ("lambda", lambda) ]
 
 
 -- Functions
