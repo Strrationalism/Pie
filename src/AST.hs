@@ -24,7 +24,7 @@ data PieValue' = PieNumber Double
                | PieList [PieValue']
                | PieNil
                | PieVar (MVar PieValue')
-               | PieLambda (Maybe String) [String] PieExpr PieEnv
+               | PieLambda (Maybe String) [String] PieExpr PieEnv -- TODO:varargs
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> IO PieExpr)

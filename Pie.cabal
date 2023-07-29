@@ -27,6 +27,8 @@ executable Pie
                      , megaparsec
                      , process
                      , text
+                     , filepattern
+                     , filepath
   ghc-options:         -Wall
                        -Wcompat
                        -Widentities

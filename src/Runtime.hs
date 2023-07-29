@@ -247,20 +247,63 @@ words' [UnError (PieString s)] =
   pure $ PieList $ map PieString $ quotedWords s
 words' _ = invalidArg
 
--- files
--- dirs
--- path
--- ext
--- filename
--- parent-dir
--- change-ext
--- write-text
--- file-exists
--- dir-exists
--- ensure-dir
--- copy-file
--- delete-file
--- delete-dir
+-- Runtime Functions
+  -- ls
+  -- path
+  -- ext
+  -- filename
+  -- parent-dir
+  -- change-ext
+  -- write-file
+  -- read-file
+  -- file-exists
+  -- dir-exists
+  -- ensure-dir
+  -- copy-file
+  -- delete-file
+  -- delete-dir
+  -- find-executables
+  -- string-to-char-list
+  -- list-to-char-string
+  -- match-file-pattern
+
+-- stdlib
+  -- minBy
+  -- maxBy
+  -- abs
+  -- clamp
+  -- concat
+  -- nth
+  -- skip
+  -- take
+  -- init
+  -- last
+  -- length
+  -- map
+  -- fold
+  -- flatMap
+  -- filter
+  -- find
+  -- exists
+  -- range
+  -- generate
+  -- reduce
+  -- reverse
+  -- take-while
+  -- skip-while
+  -- slice
+  -- unfold
+  -- sort-with
+  -- sort-by
+  -- sort
+  -- sort-desc
+  -- try-catch
+  -- is-blank-char
+  -- string-trim-start
+  -- string-trim-end
+  -- string-trim
+
+
 
 functions :: [(String, PieFunc)]
 functions =
