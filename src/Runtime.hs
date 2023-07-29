@@ -361,14 +361,26 @@ envPath :: PieFunc
 envPath [] = PieList <$> (map PieString <$> liftIO getSearchPath)
 envPath _ = invalidArg
 
+id' :: PieFunc
+id' [UnError e] = pure e
+id' _ = invalidArg
+
 -- Runtime Functions
   -- ext
+  -- filename-no-ext
   -- filename
   -- parent-dir
   -- change-ext
+  -- split-path
+  -- split-dir
+  -- eq-path?
+  -- rel-path
+  -- rel-path?
+  -- abs-path?
+  -- valid-path?
+  -- lambda
 
 -- stdlib
-  -- id
   -- minBy
   -- maxBy
   -- abs
@@ -426,8 +438,8 @@ functions =
   , ("and", booleanOperator (&&))
   , ("or", booleanOperator (||))
   , ("not", not')
-  , ("eq", comparisonOperator $ \a b -> pure $ a == b)
-  , ("ne", comparisonOperator $ \a b -> pure $ a /= b)
+  , ("eq?", comparisonOperator $ \a b -> pure $ a == b)
+  , ("ne?", comparisonOperator $ \a b -> pure $ a /= b)
   , (">", comparisonOperator' (>))
   , (">=", comparisonOperator' (>=))
   , ("<", comparisonOperator' (<))
@@ -439,6 +451,7 @@ functions =
   , ("cdr", cdr)
   , ("cons", cons)
   , ("var", makeVar)
+  , ("var?", isTypeOf $ \case PieVar _ -> True; _ -> False)
   , ("get-var", getVar)
   , ("set-var", setVar)
   , ("shell", shell'')
@@ -467,4 +480,5 @@ functions =
   , ("read-file", readFile')
   , ("env", env)
   , ("env-path", envPath)
+  , ("id", id')
   ]
