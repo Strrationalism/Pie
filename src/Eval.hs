@@ -104,6 +104,10 @@ runWithNewVar name val =
   runWithModifiedContext $ \x ->
     x { pieEvalContextEnv = (name, val) : pieEvalContextEnv x }
 
+runWithNewVars :: PieEnv -> PieEval r -> PieEval r
+runWithNewVars [] = id
+runWithNewVars ((a, b):xs) = runWithNewVar a b . runWithNewVars xs
+
 runEval :: PieEval r -> PieEvalContext -> IO r
 runEval (PieEval r) = r
 
@@ -176,11 +180,19 @@ runWithDefineSyntax expr c = do
   (name, val) <- processDefineSyntax expr
   runWithNewVar name val c
 
+processDefinesSyntax :: [PieExpr] -> PieEval PieEnv
+processDefinesSyntax [] = pure []
+processDefinesSyntax (PieExprList xs:y) = do
+  xs' <- processDefineSyntax xs
+  uncurry runWithNewVar xs' $ do
+    ys' <- processDefinesSyntax y
+    pure $ xs' : ys'
+processDefinesSyntax _ = fail "Invalid defines syntax."
+
 runWithDefinesSyntax :: [PieExpr] -> PieEval r -> PieEval r
-runWithDefinesSyntax [] = id
-runWithDefinesSyntax (PieExprList xs:y) =
-  runWithDefineSyntax xs . runWithDefinesSyntax y
-runWithDefinesSyntax _ = const $ fail "Invalid define syntax."
+runWithDefinesSyntax xs k = do
+  xs' <- processDefinesSyntax xs
+  runWithNewVars xs' k
 
 evalStatements :: [PieExpr] -> PieEval PieValue
 evalStatements [] = return $ noErrorInfo PieNil
