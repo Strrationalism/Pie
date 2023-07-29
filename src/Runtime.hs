@@ -247,6 +247,18 @@ words' [UnError (PieString s)] =
   pure $ PieList $ map PieString $ quotedWords s
 words' _ = invalidArg
 
+decodeString :: PieFunc
+decodeString x = pure $ PieList $
+  map (PieNumber . fromIntegral . fromEnum) $ list2String x
+
+encodeString :: PieFunc
+encodeString [UnError (PieList x)] = do
+  doubles <- forM x $ \case
+    PieNumber x' -> pure x'
+    _ -> invalidArg
+  pure $ PieString $ map (toEnum . round) doubles
+encodeString _ = invalidArg
+
 -- Runtime Functions
   -- ls
   -- path
@@ -263,7 +275,6 @@ words' _ = invalidArg
   -- delete-file
   -- delete-dir
   -- find-executables
-  -- string-to-char-list
   -- list-to-char-string
   -- match-file-pattern
 
@@ -345,4 +356,6 @@ functions =
   , ("lines", lines')
   , ("unwords", unwords'')
   , ("words", words')
+  , ("decode-string", decodeString)
+  , ("encode-string", encodeString)
   ]
