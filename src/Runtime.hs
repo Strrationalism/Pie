@@ -22,6 +22,8 @@ import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
+import Data.Ord (clamp)
+import GHC.Float.RealFracMethods (roundDoubleInt)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -193,7 +195,7 @@ cons xs'@(_:_) =
     (a, UnError (PieList xs)) -> pure $ PieList $ map unError a ++ xs
     (a, UnError (PieString xs)) -> do
       str <- forM a $ \case (UnError (PieNumber x)) -> pure x; _ -> invalidArg
-      pure $ PieString $ map (toEnum . round) str ++ xs
+      pure $ PieString $ map (toEnum . roundDoubleInt) str ++ xs
     (a, UnError PieNil) -> pure $ PieList $ map unError a
     _ -> invalidArg
 cons _ = invalidArg
@@ -266,7 +268,7 @@ encodeString x = do
   doubles <- forM x $ \case
     PieNumber x' -> pure x'
     _ -> invalidArg
-  pure $ map (toEnum . round) doubles
+  pure $ map (toEnum . roundDoubleInt) doubles
 
 decodeString :: String -> [PieValue']
 decodeString = map $ PieNumber . fromIntegral . fromEnum
@@ -425,39 +427,52 @@ mapList f [UnError (PieString ls)] = do
 mapList _ _ = invalidArg
 
 mapListI :: (Int -> [PieValue'] -> PieValue') -> PieFunc
-mapListI f [UnError (PieNumber n), ls] = mapList (f (round n)) [ls]
+mapListI f [UnError (PieNumber n), ls] = mapList (f (roundDoubleInt n)) [ls]
 mapListI _ _ = invalidArg
+
+abs' :: PieFunc
+abs' [UnError (PieNumber x)] = pure $ PieNumber $ if x >= 0 then x else -x
+abs' _ = invalidArg
+
+clamp' :: PieFunc
+clamp' [UnError (PieNumber bottom), UnError (PieNumber top), UnError (PieNumber v)] =
+  pure $ PieNumber $ clamp (bottom, top) v
+clamp' _ = undefined
+
+intRange :: PieFunc
+intRange [UnError (PieNumber a'), UnError (PieNumber b')] =
+  let a = roundDoubleInt a'
+      b = roundDoubleInt b'
+      r = if a > b then reverse [ b .. a ] else [ a .. b ]
+  in pure $ PieList $ map (PieNumber . fromIntegral) r
+intRange _ = invalidArg
+
+-- runtime
+  -- concat
+  -- slice
+  -- try-catch
+  -- string-trim-start
+  -- string-trim-end
+  -- string-trim
 
 -- stdlib
   -- minBy
   -- maxBy
-  -- abs
-  -- clamp
-  -- concat
   -- map
   -- fold
   -- flatMap
   -- filter
   -- find
-  -- exists
-  -- range
   -- generate
-  -- reduce
+  -- exists
   -- take-while
   -- skip-while
-  -- slice
+  -- reduce
   -- unfold
   -- sort-with
   -- sort-by
   -- sort
   -- sort-desc
-  -- try-catch
-  -- is-blank-char
-  -- string-trim-start
-  -- string-trim-end
-  -- string-trim
-
-
 
 functions :: [(String, PieFunc)]
 functions =
@@ -541,4 +556,7 @@ functions =
   , ("take", mapListI $ \i -> PieList . take i)
   , ("skip", mapListI $ \i -> PieList . drop i)
   , ("nth", mapListI $ flip (!!))
+  , ("abs", abs')
+  , ("clamp", clamp')
+  , ("int-range", intRange)
   ]
