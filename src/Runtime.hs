@@ -24,6 +24,8 @@ import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
 import Data.Ord (clamp)
 import GHC.Float.RealFracMethods (roundDoubleInt)
+import Data.Char (isSpace)
+import Data.List (dropWhileEnd)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -447,13 +449,32 @@ intRange [UnError (PieNumber a'), UnError (PieNumber b')] =
   in pure $ PieList $ map (PieNumber . fromIntegral) r
 intRange _ = invalidArg
 
+concat' :: PieFunc
+concat' [] = invalidArg
+concat' strings@(UnError (PieString _) : _ : _) = do
+  strings' <- getStrings strings
+  pure $ PieString $ concat strings'
+concat' lists@(UnError (PieList _) : _ : _) = do
+  lists' <- forM (map unError lists) $ \case
+    PieList ls -> pure ls
+    _ -> invalidArg
+  pure $ PieList $ concat lists'
+concat' [UnError (PieList args)] = concat' $ map noErrorInfo args
+concat' _ = invalidArg
+
+slice :: PieFunc
+slice [UnError (PieNumber s), UnError (PieNumber l), UnError x] = do
+  let start = roundDoubleInt s
+      len = roundDoubleInt l
+      f = take len . drop start
+  case x of
+    PieList x' -> pure $ PieList $ f x'
+    PieString x' -> pure $ PieString $ f x'
+    _ -> invalidArg
+slice _ = invalidArg
+
 -- runtime
-  -- concat
-  -- slice
   -- try-catch
-  -- string-trim-start
-  -- string-trim-end
-  -- string-trim
 
 -- stdlib
   -- minBy
@@ -559,4 +580,9 @@ functions =
   , ("abs", abs')
   , ("clamp", clamp')
   , ("int-range", intRange)
+  , ("concat", concat')
+  , ("slice", slice)
+  , ("string-trim-start", mapString $ dropWhile isSpace)
+  , ("string-trim-end", mapString $ dropWhileEnd isSpace)
+  , ("string-trim", mapString $ dropWhileEnd isSpace . dropWhile isSpace)
   ]
