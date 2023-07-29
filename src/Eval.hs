@@ -125,7 +125,7 @@ evalExpr (PieExprAtom x) = return x
 evalExpr PieExprEmpty = return $ noErrorInfo PieNil
 evalExpr (PieExprList1Symbol "define" _) = fail "Invalid define."
 evalExpr (PieExprList1Symbol "defines" _) = fail "Invalid defines."
-evalExpr (PieExprList1WithErrorInfo f errInfo args) = do
+evalExpr (PieExprList1AtomWithErrorInfo f errInfo args) = do
   f' <- evalExpr f
   case unError f' of
     PieLambda name params body env -> do
@@ -149,6 +149,9 @@ evalExpr (PieExprList1WithErrorInfo f errInfo args) = do
         a <- liftIO $ f'' args ctx
         evalExpr a
     x -> runtimeError' errInfo $ show x ++ " is not callable."
+evalExpr (PieExprList1 f args) = do
+  f' <- PieExprAtom <$> evalExpr f
+  evalExpr (PieExprList1 f' args)
 evalExpr x = fail $ prettyPrintExpr x
 
 getSymbol :: PieExpr -> PieEval String

@@ -81,9 +81,9 @@ pattern PieExprEmpty = PieExprList []
 pattern PieExprList1 :: PieExpr -> [PieExpr] -> PieExpr
 pattern PieExprList1 x xs = PieExprList (x:xs)
 
-pattern PieExprList1WithErrorInfo ::
+pattern PieExprList1AtomWithErrorInfo ::
   PieExpr -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
-pattern PieExprList1WithErrorInfo x err xs <-
+pattern PieExprList1AtomWithErrorInfo x err xs <-
   PieExprList (x@(PieExprAtom (WithErrorInfo _ err)) : xs)
 
 pattern PieExprList1Symbol :: String -> [PieExpr] -> PieExpr
