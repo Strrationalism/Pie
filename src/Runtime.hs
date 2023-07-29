@@ -19,7 +19,7 @@ import qualified System.Environment
 import qualified System.FilePattern.Directory
 import System.Directory
 import System.Exit (ExitCode(ExitSuccess))
-import System.FilePath (joinPath, getSearchPath)
+import System.FilePath (joinPath, getSearchPath, normalise)
 import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
 
@@ -308,20 +308,15 @@ tempDir [] = do
   pure $ PieString tmpDir
 tempDir _ = invalidArg
 
-path :: PieFunc
-path subPaths = do
+path :: (String -> IO String) ->PieFunc
+path k subPaths = do
   let xs = map valueToString subPaths
-  pure $ PieString $ joinPath xs
+  PieString <$> liftIO (k $ joinPath xs)
 
 copy :: PieFunc
 copy [UnError (PieString src), UnError (PieString dst)] =
   liftIO (copyFile src dst) >> pure PieNil
 copy _ = invalidArg
-
-absPath :: PieFunc
-absPath subPaths = do
-  let xs = map valueToString subPaths
-  liftIO $ fmap PieString $ makeAbsolute $ joinPath xs
 
 pathExists :: (String -> IO Bool) -> PieFunc
 pathExists c files = do
@@ -459,9 +454,10 @@ functions =
   , ("delete", delete)
   , ("list-dir", listDir)
   , ("temp-dir", tempDir)
-  , ("path", path)
+  , ("path", path pure)
   , ("copy", copy)
-  , ("abs-path", absPath)
+  , ("abs-path", path makeAbsolute)
+  , ("normalize-path", path $ pure . normalise)
   , ("file-exists", pathExists doesFileExist)
   , ("dir-exists", pathExists doesDirectoryExist)
   , ("path-exists", pathExists doesPathExist)
