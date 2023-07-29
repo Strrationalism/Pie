@@ -550,6 +550,11 @@ skipWhile' = evalPieLambda ["f", "ls"] $
   "(if (empty? ls) ls " ++
     "(if (f (car ls)) ((self) f (cdr ls)) ls) )"
 
+invoke :: PieFunc
+invoke [UnError (PieList args)] =
+  fmap unError <$> evalExpr $ PieExprList $ map (PieExprAtom . noErrorInfo) args
+invoke _ = invalidArg
+
 functions :: [(String, PieFunc)]
 functions =
   [ ("display", display)
@@ -647,4 +652,5 @@ functions =
   , ("exists", exists')
   , ("take-while", takeWhile')
   , ("skip-while", skipWhile')
+  , ("invoke", invoke)
   ]
