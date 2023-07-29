@@ -86,36 +86,41 @@ pattern PieExprList1Symbol x xs <- PieExprList1 (PieExprSymbol x) xs
 
 -- Pretty Print
 
-showAtom :: PieValue -> String
-showAtom = show . unError
+valueToString' :: PieValue' -> String
+valueToString' (PieString s) = s
+valueToString' s = show s
+
+valueToString :: PieValue -> String
+valueToString = valueToString' . unError
 
 makeIndent :: Int -> String
 makeIndent indent = replicate (indent * indentSize) ' '
   where indentSize = 2
 
+unlines' :: [String] -> String
+unlines' [] = []
+unlines' [a] = a
+unlines' (x:xs) = x ++ "\n" ++ unlines' xs
+
 prettyPrintExprs' :: Int -> [PieExpr] -> String
 prettyPrintExprs' i = unlines' . map (prettyPrintExpr' i)
-  where unlines' :: [String] -> String
-        unlines' [] = []
-        unlines' [a] = a
-        unlines' (x:xs) = x ++ "\n" ++ unlines' xs
 
 prettyPrintExpr' :: Int -> PieExpr -> String
-prettyPrintExpr' i (PieExprAtom atom) = makeIndent i ++ showAtom atom
+prettyPrintExpr' i (PieExprAtom atom) = makeIndent i ++ valueToString atom
 prettyPrintExpr' i PieExprEmpty = makeIndent i ++ "()"
 prettyPrintExpr' i (PieExprList [PieExprAtom x]) =
-  makeIndent i ++ "(" ++ showAtom x ++ ")"
+  makeIndent i ++ "(" ++ valueToString x ++ ")"
 prettyPrintExpr' i (PieExprList [PieExprAtom a, PieExprAtom b]) =
   makeIndent i ++
-  "(" ++ showAtom a ++ " " ++ showAtom b ++ ")"
+  "(" ++ valueToString a ++ " " ++ valueToString b ++ ")"
 prettyPrintExpr' i (PieExprList [PieExprAtom a, PieExprAtom b, PieExprAtom c]) =
   makeIndent i ++
-  "(" ++ showAtom a ++ " " ++
-  showAtom b ++ " " ++
-  showAtom c ++ ")"
+  "(" ++ valueToString a ++ " " ++
+  valueToString b ++ " " ++
+  valueToString c ++ ")"
 prettyPrintExpr' i (PieExprList1 (PieExprAtom x) ls) =
   makeIndent i ++
-  "(" ++ showAtom x ++ "\n" ++ prettyPrintExprs' (i + 1) ls ++ ")"
+  "(" ++ valueToString x ++ "\n" ++ prettyPrintExprs' (i + 1) ls ++ ")"
 prettyPrintExpr' i (PieExprList ls) =
   (makeIndent i ++ "(\n") ++ prettyPrintExprs' (i + 1) ls ++ makeIndent i ++ ")"
 prettyPrintExpr' _ _ = undefined

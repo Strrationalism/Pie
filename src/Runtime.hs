@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase #-}
-module Runtime ( runtime ) where
+module Runtime ( runtime, quotedIfNecessary, quotedWords ) where
 
 import AST
 import Control.Monad.IO.Class (liftIO)
@@ -24,9 +24,7 @@ invalidArg :: PieEval a
 invalidArg = fail "Invalid Arguments."
 
 list2String :: [PieValue] -> String
-list2String = unwords . map showAtom'
-  where showAtom' (UnError (PieString x)) = x
-        showAtom' x = showAtom x
+list2String = unwords . map valueToString
 
 runtime :: PieEnv
 runtime = fmap wrapLib (syntaxes ++ map (second wrapFunc) functions)
@@ -211,18 +209,49 @@ shell'' args = do
         "\n\n" ++ "StdErr:\n" ++ makeIndent 1 ++ err
     ExitSuccess -> pure $ PieString out
 
--- lines
--- unlines
--- words
--- unwords
+lines' :: PieFunc
+lines' [UnError (PieString s)] = pure $ PieList $ map PieString $ lines s
+lines' _ = invalidArg
+
+unlines'' :: PieFunc
+unlines'' [UnError(PieList s)] =
+  pure $ PieString $ unlines' $ map (quotedIfNecessary . valueToString') s
+unlines'' _ = undefined
+
+quotedIfNecessary :: String -> String
+quotedIfNecessary x
+  | ' ' `notElem` x = x
+  | head x /= '\"' || last x /= '\"' = "\"" ++ x ++ "\""
+  | otherwise = x
+
+unwords'' :: PieFunc
+unwords'' [UnError (PieList ls)] =
+  pure $ PieString $ unwords $ map (quotedIfNecessary . valueToString') ls
+unwords'' _ = undefined
+
+quotedWords :: String -> [String]
+quotedWords = map (reverse . snd) . filter (/= (False, "")) . f False ""
+  where f :: Bool -> String -> String -> [(Bool, String)]
+        f False str (' ':r) = (False, str) : f False "" r
+        f False str ('\"':r) = (False, str) : f True "" r
+        f False str (x:r) = f False (x:str) r
+        f True str ('\"':r) = (True, str) : f False "" r
+        f True str (x:r) = f True (x:str) r
+        f _ str [] = [(False, str)]
+
+words' :: PieFunc
+words' [UnError (PieString s)] =
+  pure $ PieList $ map PieString $ quotedWords s
+words' _ = invalidArg
+
 -- files
 -- dirs
 -- path
 -- ext
 -- filename
--- http
+-- parent-dir
+-- change-ext
 -- write-text
--- change-extension
 -- file-exists
 -- dir-exists
 -- ensure-dir
@@ -256,7 +285,8 @@ functions =
   , (">=", comparisonOperator' (>=))
   , ("<", comparisonOperator' (<))
   , ("<=", comparisonOperator' (<=))
-  , ("to-string", pure . PieString . list2String)
+  , ("string", pure . PieString . list2String)
+  , ("string-quoted", pure . PieString . quotedIfNecessary . list2String)
   , ("invalid-arg", const invalidArg)
   , ("car", car)
   , ("cdr", cdr)
@@ -265,4 +295,8 @@ functions =
   , ("get-var", getVar)
   , ("set-var", setVar)
   , ("shell", shell'')
+  , ("unlines", unlines'')
+  , ("lines", lines')
+  , ("unwords", unwords'')
+  , ("words", words')
   ]
