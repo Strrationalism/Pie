@@ -1,5 +1,6 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 module Runtime ( runtime, quotedIfNecessary, quotedWords ) where
 
 import AST
@@ -8,12 +9,17 @@ import Control.Concurrent.MVar (swapMVar)
 import Control.Monad (zipWithM, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Bifunctor (second)
+import Data.Char (isSpace)
 import Data.Fixed (mod')
 import Data.Foldable (foldl', forM_)
+import Data.List (dropWhileEnd)
 import Data.Maybe (isJust)
+import Data.Ord (clamp)
+import Data.Text (Text)
 import Data.Traversable (forM)
 import Error
 import Eval
+import GHC.Float.RealFracMethods (roundDoubleInt)
 import GHC.IO.Exception (ExitCode(ExitFailure))
 import qualified System.Environment
 import qualified System.FilePattern.Directory
@@ -22,10 +28,6 @@ import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
-import Data.Ord (clamp)
-import GHC.Float.RealFracMethods (roundDoubleInt)
-import Data.Char (isSpace)
-import Data.List (dropWhileEnd)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -114,6 +116,25 @@ lambda (PieExprList params : body) = do
     PieLambda Nothing (Right params') body env'
 lambda _ = invalidArg
 
+catch :: PieSyntax
+catch (x : xs) = do
+  r <- runProtected $ evalStatements xs
+  case r of
+    Right x' -> pure $ PieExprAtom x'
+    Left err ->
+      pure $ PieExprList
+        [x, PieExprAtom $ noErrorInfo $ PieString $ pieEvalErrorMessage err]
+catch _ = invalidArg
+
+rec' :: PieSyntax
+rec' [x] = do
+  c <- pieEvalContextEnv <$> getContext
+  let mySelfBody = PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "rec") [x]
+      mySelfFunc = noErrorInfo $ PieLambda Nothing (Right []) [mySelfBody] c
+  x' <- evalExpr x
+  pure $ PieExprList1 (PieExprAtom x') [PieExprAtom mySelfFunc]
+rec' _ = invalidArg
+
 syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
@@ -121,7 +142,9 @@ syntaxes =
   , ("let", let')
   , ("cond", cond)
   , ("foreach", foreach)
-  , ("lambda", lambda) ]
+  , ("lambda", lambda)
+  , ("catch", catch)
+  , ("rec", rec') ]
 
 
 -- Functions
@@ -473,8 +496,11 @@ slice [UnError (PieNumber s), UnError (PieNumber l), UnError x] = do
     _ -> invalidArg
 slice _ = invalidArg
 
--- runtime
-  -- try-catch
+evalPieFunc :: Text -> PieFunc
+evalPieFunc pieCode =
+  let func = PieExprAtom $ evalPieCodeUnsafe pieCode runtime in
+    \args -> unError <$> evalExpr (PieExprList1 func $ fmap PieExprAtom args)
+
 
 -- stdlib
   -- minBy

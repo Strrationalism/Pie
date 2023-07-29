@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 module Eval
   ( PieEval ( PieEval )
+  , PieEvalError ( pieEvalErrorMessage )
   , evalExpr
   , evalStatements
   , getContext
@@ -12,7 +13,10 @@ module Eval
   , fail
   , runtimeError'
   , tryLookupEnv
-  , runEval ) where
+  , runEval
+  , runProtected
+  , evalPieCode
+  , evalPieCodeUnsafe ) where
 
 import AST
 import Control.Monad (ap)
@@ -21,7 +25,10 @@ import Error
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Foldable (foldl')
 import Data.Data (Typeable)
-import Control.Exception (Exception, throw)
+import Control.Exception (Exception, throw, try)
+import Data.Text (Text, pack)
+import Parser (parseFromText)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- Pie Eval Monad
 
@@ -142,7 +149,7 @@ evalExpr (PieExprList1WithErrorInfo f errInfo args) = do
         a <- liftIO $ f'' args ctx
         evalExpr a
     x -> runtimeError' errInfo $ show x ++ " is not callable."
-evalExpr _ = undefined
+evalExpr x = fail $ prettyPrintExpr x
 
 getSymbol :: PieExpr -> PieEval String
 getSymbol (PieExprAtom (UnError (PieSymbol x))) = pure x
@@ -174,3 +181,20 @@ evalStatements ((PieExprList1Symbol "defines" bindings):k) =
 evalStatements [x] = evalExpr x
 evalStatements (x:xs) = evalExpr x >> evalStatements xs
 
+runProtected :: PieEval r -> PieEval (Either PieEvalError r)
+runProtected k = do
+  ctx <- getContext
+  liftIO $ try (runEval k ctx)
+
+evalPieCode :: Text -> PieEval PieValue
+evalPieCode pieCode = do
+  let expr = either undefined id $ parseFromText "<haskell>" pieCode
+  evalStatements expr
+
+evalPieCodeUnsafe :: Text -> PieEnv -> PieValue
+evalPieCodeUnsafe pieCode env =
+  unsafePerformIO $ runEval (evalPieCode pieCode) $
+    PieEvalContext
+      { pieEvalContextEnv = env
+      , pieEvalContextCallStack = []
+      , pieEvalContextPrintEnabled = True }
