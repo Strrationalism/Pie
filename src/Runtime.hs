@@ -538,13 +538,17 @@ exists' = evalPieLambda ["f", "ls"] $
   "(if (empty? ls) false " ++
     "(if (f (car ls)) true ((self) f (cdr ls))))"
 
--- stdlib
-  -- take-while
-  -- skip-while
-  -- sort-with
-  -- sort-by
-  -- sort
-  -- sort-desc
+takeWhile' :: PieFunc
+takeWhile' = evalPieLambda ["f", "ls"] $
+  "(if (empty? ls) ls " ++
+    "(if (f (car ls)) " ++
+      "(cons (car ls) ((self) f (cdr ls))) " ++
+      "(cond ((string? ls) \"\") ((list? ls) (list)) (true (invalid-arg))) ))"
+
+skipWhile' :: PieFunc
+skipWhile' = evalPieLambda ["f", "ls"] $
+  "(if (empty? ls) ls " ++
+    "(if (f (car ls)) ((self) f (cdr ls)) ls) )"
 
 functions :: [(String, PieFunc)]
 functions =
@@ -641,4 +645,6 @@ functions =
   , ("filter", filter')
   , ("flatMap", flatMap')
   , ("exists", exists')
+  , ("take-while", takeWhile')
+  , ("skip-while", skipWhile')
   ]
