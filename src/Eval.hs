@@ -26,7 +26,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Foldable (foldl')
 import Data.Data (Typeable)
 import Control.Exception (Exception, throw, try)
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import Parser (parseFromText)
 import System.IO.Unsafe (unsafePerformIO)
 
