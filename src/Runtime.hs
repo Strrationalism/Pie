@@ -3,19 +3,26 @@
 module Runtime ( runtime, quotedIfNecessary, quotedWords ) where
 
 import AST
-import Control.Monad.IO.Class (liftIO)
-import Data.Bifunctor (second)
-import Error
-import Eval
-import Data.Fixed (mod')
-import Data.Foldable (foldl', forM_)
-import Control.Monad (zipWithM, when)
-import Data.Traversable (forM)
 import Control.Concurrent (newMVar, readMVar)
 import Control.Concurrent.MVar (swapMVar)
-import System.Process (readCreateProcessWithExitCode, shell)
-import System.Exit (ExitCode(ExitSuccess))
+import Control.Monad (zipWithM, when)
+import Control.Monad.IO.Class (liftIO)
+import Data.Bifunctor (second)
+import Data.Fixed (mod')
+import Data.Foldable (foldl', forM_)
+import Data.Maybe (isJust)
+import Data.Traversable (forM)
+import Error
+import Eval
 import GHC.IO.Exception (ExitCode(ExitFailure))
+import qualified System.Environment
+import qualified System.FilePattern.Directory
+import System.Directory
+import System.Directory.Internal.Prelude (getEnv)
+import System.Exit (ExitCode(ExitSuccess))
+import System.FilePath (joinPath, splitSearchPath)
+import System.FilePattern ( (?==) )
+import System.Process (readCreateProcessWithExitCode, shell)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -259,26 +266,117 @@ encodeString [UnError (PieList x)] = do
   pure $ PieString $ map (toEnum . round) doubles
 encodeString _ = invalidArg
 
+getStrings :: [PieValue] -> PieEval [String]
+getStrings strings = forM (map unError strings) $ \case
+  PieString s -> pure s
+  _ -> invalidArg
+
+matchFiles :: PieFunc
+matchFiles (UnError (PieString base):xs) = do
+  patterns <- getStrings xs
+  r <- liftIO $ System.FilePattern.Directory.getDirectoryFiles base patterns
+  pure $ PieList $ map PieString r
+matchFiles _ = invalidArg
+
+isMatchFilePattern :: PieFunc
+isMatchFilePattern (UnError (PieString pattern):files) = do
+  files' <- getStrings files
+  pure $ PieBool $ all (pattern ?==) files'
+isMatchFilePattern _ = invalidArg
+
+ensureDir :: PieFunc
+ensureDir dirs = do
+  dirs' <- getStrings dirs
+  liftIO $ forM_ dirs' $ createDirectoryIfMissing True
+  pure PieNil
+
+delete :: PieFunc
+delete paths = do
+  paths' <- getStrings paths
+  liftIO $ forM_ paths' removePathForcibly
+  pure PieNil
+
+listDir :: PieFunc
+listDir [] = listDir [noErrorInfo $ PieString "."]
+listDir xs = do
+  xs' <- getStrings xs
+  r <- liftIO $ forM xs' listDirectory
+  pure $ PieList $ map PieString $ concat r
+
+tempDir :: PieFunc
+tempDir [] = do
+  tmpDir <- liftIO getTemporaryDirectory
+  pure $ PieString tmpDir
+tempDir _ = invalidArg
+
+path :: PieFunc
+path subPaths = do
+  let xs = map valueToString subPaths
+  pure $ PieString $ joinPath xs
+
+copy :: PieFunc
+copy [UnError (PieString src), UnError (PieString dst)] =
+  liftIO (copyFile src dst) >> pure PieNil
+copy _ = invalidArg
+
+absPath :: PieFunc
+absPath subPaths = do
+  let xs = map valueToString subPaths
+  liftIO $ fmap PieString $ makeAbsolute $ joinPath xs
+
+pathExists :: (String -> IO Bool) -> PieFunc
+pathExists c files = do
+  f <- getStrings files
+  liftIO (PieBool . and <$> mapM c f)
+
+findExecutable' :: PieFunc
+findExecutable' [UnError (PieString exe)] = do
+  exeAbsPath <- liftIO $ findExecutable exe
+  case exeAbsPath of
+    Nothing -> fail $ "Can not find \"" ++ exe ++ "\""
+    Just x -> pure $ PieString x
+findExecutable' _ = invalidArg
+
+executableExists :: PieFunc
+executableExists xs = do
+  exes <- getStrings xs
+  x <- liftIO $ forM exes findExecutable
+  pure $ PieBool $ all isJust x
+
+readFile' :: PieFunc
+readFile' [UnError (PieString f)] = PieString <$> liftIO (readFile f)
+readFile' _ = invalidArg
+
+writeFile' :: PieFunc
+writeFile' [UnError (PieString path'''), UnError (PieString content)] =
+  liftIO (writeFile path''' content) >> pure PieNil
+writeFile' _ = invalidArg
+
+env :: PieFunc
+env [UnError (PieString name), UnError defaultValue] = do
+  e <- liftIO $ System.Environment.lookupEnv name
+  pure $ maybe defaultValue PieString e
+env [UnError (PieString name)] = do
+  e <- liftIO $ System.Environment.lookupEnv name
+  case e of
+    Nothing -> fail $ "Can not find environment variable \"" ++ name ++ "\"."
+    Just x -> pure $ PieString x
+env _ = undefined
+
+envPath :: PieFunc
+envPath [] = do
+  x <- liftIO (splitSearchPath <$> getEnv "PATH")
+  pure $ PieList $ map PieString x
+envPath _ = invalidArg
+
 -- Runtime Functions
-  -- ls
-  -- path
   -- ext
   -- filename
   -- parent-dir
   -- change-ext
-  -- write-file
-  -- read-file
-  -- file-exists
-  -- dir-exists
-  -- ensure-dir
-  -- copy-file
-  -- delete-file
-  -- delete-dir
-  -- find-executables
-  -- list-to-char-string
-  -- match-file-pattern
 
 -- stdlib
+  -- id
   -- minBy
   -- maxBy
   -- abs
@@ -358,4 +456,22 @@ functions =
   , ("words", words')
   , ("decode-string", decodeString)
   , ("encode-string", encodeString)
+  , ("match-files", matchFiles)
+  , ("match-files?", isMatchFilePattern)
+  , ("ensure-dir", ensureDir)
+  , ("delete", delete)
+  , ("list-dir", listDir)
+  , ("temp-dir", tempDir)
+  , ("path", path)
+  , ("copy", copy)
+  , ("abs-path", absPath)
+  , ("file-exists", pathExists doesFileExist)
+  , ("dir-exists", pathExists doesDirectoryExist)
+  , ("path-exists", pathExists doesPathExist)
+  , ("find-exec", findExecutable')
+  , ("exec-exists", executableExists)
+  , ("write-file", writeFile')
+  , ("read-file", readFile')
+  , ("env", env)
+  , ("env-path", envPath)
   ]

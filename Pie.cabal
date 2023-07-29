@@ -29,6 +29,7 @@ executable Pie
                      , text
                      , filepattern
                      , filepath
+                     , directory
   ghc-options:         -Wall
                        -Wcompat
                        -Widentities
