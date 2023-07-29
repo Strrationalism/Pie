@@ -19,7 +19,7 @@ import qualified System.Environment
 import qualified System.FilePattern.Directory
 import System.Directory
 import System.Exit (ExitCode(ExitSuccess))
-import System.FilePath (joinPath, getSearchPath, normalise)
+import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
 
@@ -187,16 +187,6 @@ isEmpty xs = do
     _ -> invalidArg
   pure $ PieBool $ and booleans
 
-car :: PieFunc
-car [UnError (PieList (x:_))] = pure x
-car [UnError (PieString (x:_))] = pure $ PieNumber $ fromIntegral $ fromEnum x
-car _ = invalidArg
-
-cdr :: PieFunc
-cdr [UnError (PieList (_:xs))] = pure $ PieList xs
-cdr [UnError (PieString (_:xs))] = pure $ PieString xs
-cdr _ = invalidArg
-
 cons :: PieFunc
 cons xs'@(_:_) =
   case (init xs', last xs') of
@@ -268,17 +258,22 @@ words' [UnError (PieString s)] =
   pure $ PieList $ map PieString $ quotedWords s
 words' _ = invalidArg
 
-decodeString :: PieFunc
-decodeString x = pure $ PieList $
-  map (PieNumber . fromIntegral . fromEnum) $ list2String x
+decodeString' :: PieFunc
+decodeString' x = pure $ PieList $ decodeString $ list2String x
 
-encodeString :: PieFunc
-encodeString [UnError (PieList x)] = do
+encodeString :: [PieValue'] -> PieEval String
+encodeString x = do
   doubles <- forM x $ \case
     PieNumber x' -> pure x'
     _ -> invalidArg
-  pure $ PieString $ map (toEnum . round) doubles
-encodeString _ = invalidArg
+  pure $ map (toEnum . round) doubles
+
+decodeString :: String -> [PieValue']
+decodeString = map $ PieNumber . fromIntegral . fromEnum
+
+encodeString' :: PieFunc
+encodeString' [UnError (PieList x)] = PieString <$> encodeString x
+encodeString' _ = invalidArg
 
 getStrings :: [PieValue] -> PieEval [String]
 getStrings strings = forM (map unError strings) $ \case
@@ -380,20 +375,58 @@ id' :: PieFunc
 id' [UnError e] = pure e
 id' _ = invalidArg
 
--- Runtime Functions
-  -- ext
-  -- filename-no-ext
-  -- filename
-  -- parent-dir
-  -- change-ext
-  -- split-path
-  -- split-dir
-  -- eq-path?
-  -- rel-path
-  -- rel-path?
-  -- abs-path?
-  -- valid-path?
-  -- lambda
+mapString :: (String -> String) -> PieFunc
+mapString f [UnError (PieString s)] = pure $ PieString $ f s
+mapString _ _ = invalidArg
+
+changeExt :: PieFunc
+changeExt [UnError (PieString ext), UnError (PieString name)] =
+  pure $ PieString $ replaceExtension name ext
+changeExt _ = invalidArg
+
+splitPath :: PieFunc
+splitPath [UnError (PieString p)] =
+  pure $ PieList $ map PieString $ splitDirectories p
+splitPath _ = invalidArg
+
+pathEq :: PieFunc
+pathEq [] = invalidArg
+pathEq [_] = invalidArg
+pathEq paths = do
+  paths' <- getStrings paths
+  pure $ PieBool $ and $
+    zipWith equalFilePath (tail paths') (init paths')
+
+relPath :: PieFunc
+relPath [UnError (PieString base), UnError (PieString p)] =
+  pure $ PieString $ makeRelative base p
+relPath [p] = relPath [noErrorInfo $ PieString ".", p]
+relPath _ = invalidArg
+
+absPath :: PieFunc
+absPath [UnError (PieString p)] = do
+  p' <- liftIO $ makeAbsolute p
+  pure $ PieString p'
+absPath _ = invalidArg
+
+isXXXPath :: (String -> Bool) -> PieFunc
+isXXXPath f paths = do
+  p <- getStrings paths
+  pure $ PieBool $ all f p
+
+mapList :: ([PieValue'] -> PieValue') -> PieFunc
+mapList f [UnError (PieList ls)] = do
+  pure $ f ls
+mapList f [UnError (PieString ls)] = do
+  let x = f $ map (PieNumber . fromIntegral . fromEnum) ls
+  case x of
+    PieList ls' -> PieString <$> encodeString ls'
+    x' -> pure x'
+mapList _ _ = invalidArg
+
+mapListI :: (Int -> [PieValue'] -> PieValue') -> PieFunc
+mapListI f [UnError (PieNumber n), ls] = mapList (f (round n)) [ls]
+mapListI _ _ = invalidArg
 
 -- stdlib
   -- minBy
@@ -401,12 +434,6 @@ id' _ = invalidArg
   -- abs
   -- clamp
   -- concat
-  -- nth
-  -- skip
-  -- take
-  -- init
-  -- last
-  -- length
   -- map
   -- fold
   -- flatMap
@@ -416,7 +443,6 @@ id' _ = invalidArg
   -- range
   -- generate
   -- reduce
-  -- reverse
   -- take-while
   -- skip-while
   -- slice
@@ -462,8 +488,8 @@ functions =
   , ("string", pure . PieString . list2String)
   , ("string-quoted", pure . PieString . quotedIfNecessary . list2String)
   , ("invalid-arg", const invalidArg)
-  , ("car", car)
-  , ("cdr", cdr)
+  , ("car", mapList head)
+  , ("cdr", mapList $ PieList . tail)
   , ("cons", cons)
   , ("var", makeVar)
   , ("var?", isTypeOf $ \case PieVar _ -> True; _ -> False)
@@ -474,8 +500,8 @@ functions =
   , ("lines", lines')
   , ("unwords", unwords'')
   , ("words", words')
-  , ("decode-string", decodeString)
-  , ("encode-string", encodeString)
+  , ("decode-string", decodeString')
+  , ("encode-string", encodeString')
   , ("match-files", matchFiles)
   , ("match-files?", isMatchFilePattern)
   , ("ensure-dir", ensureDir)
@@ -496,4 +522,23 @@ functions =
   , ("env", env)
   , ("env-path", envPath)
   , ("id", id')
+  , ("ext", mapString takeExtension)
+  , ("filename", mapString takeFileName)
+  , ("filename-no-ext", mapString takeBaseName)
+  , ("parent-dir", mapString takeDirectory)
+  , ("change-ext", changeExt)
+  , ("split-path", splitPath)
+  , ("path-eq?", pathEq)
+  , ("abs-path", absPath)
+  , ("rel-path", relPath)
+  , ("rel-path?", isXXXPath isRelative)
+  , ("abs-path?", isXXXPath isAbsolute)
+  , ("valid-path?", isXXXPath isValid)
+  , ("length", mapList $ PieNumber . fromIntegral . length)
+  , ("init", mapList $ PieList . init)
+  , ("last", mapList last)
+  , ("reverse", mapList $ PieList . reverse)
+  , ("take", mapListI $ \i -> PieList . take i)
+  , ("skip", mapListI $ \i -> PieList . drop i)
+  , ("nth", mapListI $ flip (!!))
   ]
