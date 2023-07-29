@@ -158,10 +158,13 @@ add x@(UnError (PieString _):_) = do
 add _ = invalidArg
 
 isEmpty :: PieFunc
-isEmpty [UnError (PieString s)] = pure $ PieBool $ null s
-isEmpty [UnError (PieList s)] = pure $ PieBool $ null s
-isEmpty [UnError PieNil] = pure $ PieBool True
-isEmpty _ = invalidArg
+isEmpty xs = do
+  booleans <- forM (map unError xs) $ \case
+    PieNil -> pure True
+    PieList x -> pure $ null x
+    PieString x -> pure $ null x
+    _ -> invalidArg
+  pure $ PieBool $ and booleans
 
 car :: PieFunc
 car [UnError (PieList (x:_))] = pure x
