@@ -18,9 +18,8 @@ import GHC.IO.Exception (ExitCode(ExitFailure))
 import qualified System.Environment
 import qualified System.FilePattern.Directory
 import System.Directory
-import System.Directory.Internal.Prelude (getEnv)
 import System.Exit (ExitCode(ExitSuccess))
-import System.FilePath (joinPath, splitSearchPath)
+import System.FilePath (joinPath, getSearchPath)
 import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
 
@@ -364,9 +363,7 @@ env [UnError (PieString name)] = do
 env _ = undefined
 
 envPath :: PieFunc
-envPath [] = do
-  x <- liftIO (splitSearchPath <$> getEnv "PATH")
-  pure $ PieList $ map PieString x
+envPath [] = PieList <$> (map PieString <$> liftIO getSearchPath)
 envPath _ = invalidArg
 
 -- Runtime Functions
