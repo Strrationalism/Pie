@@ -99,5 +99,3 @@ parseFromFile :: FilePath -> IO (Either String [PieExpr])
 parseFromFile srcPath = do
   content <- readFile srcPath
   pure $ parseFromText srcPath content
-
-

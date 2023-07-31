@@ -32,6 +32,7 @@ data PieValue' = PieNumber Double
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> IO PieExpr)
+               | PieTopAction String [PieExpr] PieEnv
 
 instance Eq PieValue' where
   PieNumber n == PieNumber m = n == m
@@ -59,6 +60,7 @@ instance Show PieValue' where
     "(lambda " ++ either (++ " ") (\a' -> "(" ++ unwords a' ++ ") ") a ++
     prettyPrintExprs b ++ ")"
   show (PieHaskellFunction x _) = "(lambda <" ++ x ++ ">)"
+  show (PieTopAction name _ _) = "(action " ++ name ++ ")"
 
 type PieValue = WithErrorInfo PieValue'
 
