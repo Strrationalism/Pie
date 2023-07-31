@@ -1,7 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
-module Runtime ( runtime, quotedIfNecessary, quotedWords ) where
+module Runtime
+  ( runtime
+  , getStrings
+  , quotedIfNecessary
+  , quotedWords ) where
 
 import AST
 import Control.Concurrent (newMVar, readMVar)
