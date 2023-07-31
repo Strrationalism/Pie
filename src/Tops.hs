@@ -5,13 +5,13 @@ module Tops ( parseExports ) where
 
 import AST
 import Error
-import Eval ( PieEval, evalExpr, runWithNewVars, runtimeError', runWithDefineSyntax, runWithDefinesSyntax, runWithNewVar, getContext, lookupEnv )
+import Eval
 import Parser ( parseFromFile )
 import Control.Monad.IO.Class ( liftIO )
 import System.Exit ( exitFailure )
-import System.FilePath (equalFilePath)
+import System.FilePath (equalFilePath, takeDirectory, joinPath)
 import Control.Monad (forM, forM_, when)
-import Runtime (getStrings)
+import Runtime (getStrings, runtime)
 import Data.IORef (IORef, writeIORef, readIORef, newIORef)
 import Data.List (find)
 
@@ -53,7 +53,7 @@ loadExports i (PieTopDefinition "export" err e : next) = do
     _ -> runtimeError' err "Export syntax invalid."
   exports' <- forM exports $ \c -> (unError c ,) <$> lookupEnv c
   next' <- loadExports i next
-  pure $ next' ++ exports'
+  pure $ next' ++ reverse exports'
 loadExports _ (wtf:_) =
   fail $ "Unknown top-level definition:\n" ++ prettyPrintExpr wtf
 
@@ -67,11 +67,15 @@ importExports importState path = do
   case find (importPathEquals path . fst) curAlready of
     Just x -> pure $ snd x
     Nothing -> do
-      file <- liftIO $ parseFromFile path
+      let lastFile = head $ pieImportStateRoute importState
+          lastFileDir = takeDirectory lastFile
+      file <- liftIO $ parseFromFile $ joinPath [lastFileDir, path]
       case file of
         Right x -> do
-          e <- flip loadExports x $ importState
-            { pieImportStateRoute = path : pieImportStateRoute importState }
+          e <-
+            runInEnv runtime $
+              flip loadExports x $ importState
+                { pieImportStateRoute = path : pieImportStateRoute importState }
           liftIO $ writeIORef (pieImportStateAlreadyImported importState) $
             (path, e) : curAlready
           return e

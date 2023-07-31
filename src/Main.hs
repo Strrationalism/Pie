@@ -5,6 +5,7 @@ import AST
 import Eval
 import Runtime
 import Control.Monad (void)
+import Tops
 
 runFromFile :: FilePath -> IO ()
 runFromFile path = do
@@ -16,4 +17,7 @@ runFromFile path = do
 
 
 main :: IO ()
-main = runFromFile "D:/Repos/build.pie"
+main = do
+  x <- runEval (parseExports "D:/Repos/build.pie") $
+    PieEvalContext runtime [] True
+  print x
