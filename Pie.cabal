@@ -23,6 +23,7 @@ executable Pie
                      , Eval
                      , Runtime
                      , Tops
+                     , Task
 
   build-depends:       base >= 4.7 && < 5
                      , sexpresso

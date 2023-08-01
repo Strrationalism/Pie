@@ -7,15 +7,11 @@ import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
 import GHC.Float.RealFracMethods (properFractionDoubleInt)
 import Control.Concurrent (MVar, readMVar)
 import GHC.IO (unsafePerformIO)
-
+import {-# SOURCE #-} Task (PieTask)
+import {-# SOURCE #-} Eval (PieEvalContext)
 -- Types
 
 type PieEnv = [(String, PieValue)]
-
-data PieEvalContext = PieEvalContext
-  { pieEvalContextEnv :: PieEnv
-  , pieEvalContextCallStack :: [WithErrorInfo String]
-  , pieEvalContextPrintEnabled :: Bool }
 
 data PieValue' = PieNumber Double
                | PieBool Bool
@@ -33,6 +29,7 @@ data PieValue' = PieNumber Double
                   String
                   ([PieExpr] -> PieEvalContext -> IO PieExpr)
                | PieTopAction String [PieExpr] PieEnv
+               | PieTopTask PieTask
 
 instance Eq PieValue' where
   PieNumber n == PieNumber m = n == m
@@ -61,6 +58,7 @@ instance Show PieValue' where
     prettyPrintExprs b ++ ")"
   show (PieHaskellFunction x _) = "(lambda <" ++ x ++ ">)"
   show (PieTopAction name _ _) = "(action " ++ name ++ ")"
+  show (PieTopTask {}) = "(task)"
 
 type PieValue = WithErrorInfo PieValue'
 

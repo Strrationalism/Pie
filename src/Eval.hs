@@ -2,6 +2,7 @@
 module Eval
   ( PieEval ( PieEval )
   , PieEvalError ( pieEvalErrorMessage )
+  , PieEvalContext (..)
   , evalExpr
   , evalStatements
   , getContext
@@ -30,6 +31,11 @@ import Control.Exception (Exception, throw, try)
 import Data.Text (Text)
 import Parser (parseFromText)
 import System.IO.Unsafe (unsafePerformIO)
+
+data PieEvalContext = PieEvalContext
+  { pieEvalContextEnv :: PieEnv
+  , pieEvalContextCallStack :: [WithErrorInfo String]
+  , pieEvalContextPrintEnabled :: Bool }
 
 -- Pie Eval Monad
 

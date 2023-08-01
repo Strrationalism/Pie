@@ -16,6 +16,7 @@ import System.Directory (makeAbsolute)
 import System.Exit ( exitFailure )
 import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
+import Task (PieTask(pieTaskName), parsePieTask)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
@@ -44,7 +45,7 @@ loadExports impState (PieTopDefinition "import" err imports : next) = do
   forM_ imports'' $ \importPath ->
     when (any (importPathEquals importPath) $ pieImportStateRoute impState) $
       runtimeError' err $
-        "Import cycle on \"" ++ importPath ++
+        "Import cycle between \"" ++ importPath ++
         "\" and \"" ++ currentFileName ++ "\"."
   env <- forM imports'' $ importExports impState
   runWithNewVars (concat env) $ loadExports impState next
@@ -52,8 +53,10 @@ loadExports i (PieTopDefinition "define" _ d : next) =
   runWithDefineSyntax d $ loadExports i next
 loadExports i (PieTopDefinition "defines" _ d : next) =
   runWithDefinesSyntax d $ loadExports i next
-loadExports _ (PieTopDefinition "task" _ _ : _) =
-  undefined
+loadExports i (PieTopDefinition "task" err' t : next) = do
+  task <- parsePieTask t
+  runWithNewVar (pieTaskName task) (WithErrorInfo (PieTopTask task) err') $
+    loadExports i next
 loadExports i (PieTopDefinition "action" e (PieExprSymbol n : b) : k) = do
   env <- pieEvalContextEnv <$> getContext
   let action = PieTopAction n b env
