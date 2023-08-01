@@ -43,7 +43,7 @@ symbolParser = do
   let symbolFirstCharacter = concat [ [ 'a' .. 'z' ]
                                     , [ 'A' .. 'Z' ]
                                     , [ '-', '+', '*', '/', '>', '<', '=' ]
-                                    , [ '?', '!', '\'' ] ]
+                                    , [ '?', '!', '\'', '_' ] ]
       symbolChars = symbolFirstCharacter ++ [ '0' .. '9' ]
   firstCharacter <- oneOf symbolFirstCharacter
   nextCharacters <- many $ oneOf symbolChars

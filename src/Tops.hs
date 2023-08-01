@@ -4,16 +4,18 @@
 module Tops ( parseExports ) where
 
 import AST
+import Control.Monad (forM, forM_, when)
+import Control.Monad.IO.Class ( liftIO )
+import Data.IORef (IORef, writeIORef, readIORef, newIORef)
+import Data.List (find)
 import Error
 import Eval
 import Parser ( parseFromFile )
-import Control.Monad.IO.Class ( liftIO )
-import System.Exit ( exitFailure )
-import System.FilePath (equalFilePath, takeDirectory, joinPath)
-import Control.Monad (forM, forM_, when)
 import Runtime (getStrings, runtime)
-import Data.IORef (IORef, writeIORef, readIORef, newIORef)
-import Data.List (find)
+import System.Directory (makeAbsolute)
+import System.Exit ( exitFailure )
+import System.FilePath ( equalFilePath, takeDirectory, joinPath )
+import Data.Functor (void)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
@@ -24,8 +26,17 @@ data PieImportState = PieImportState
   { pieImportStateRoute :: [FilePath]
   , pieImportStateAlreadyImported :: IORef [(FilePath, PieEnv)] }
 
+runAction :: PieValue -> PieEval ()
+runAction (UnError (PieTopAction _ body env)) =
+  void $ runInEnv env $ evalStatements body
+runAction (WithErrorInfo x err) =
+  runtimeError' err $ "\'" ++ show x ++ "\' is not an action."
+
 loadExports :: PieImportState -> [PieExpr] -> PieEval PieEnv
-loadExports _ [] = pure []
+loadExports _ [] = do
+  initObjects <- filter ((== "_init") . fst) . pieEvalContextEnv <$> getContext
+  mapM_ runAction (reverse $ map snd initObjects)
+  pure []
 loadExports impState (PieTopDefinition "import" err imports : next) = do
   let currentFileName = head $ pieImportStateRoute impState
   imports' <- mapM evalExpr imports
@@ -49,6 +60,8 @@ loadExports i (PieTopDefinition "action" e (PieExprSymbol n : b) : k) = do
   runWithNewVar n (WithErrorInfo action e) (loadExports i k)
 loadExports i (PieTopDefinition "export" err e : next) = do
   exports <- forM e $ \case
+    PieExprAtom (WithErrorInfo (PieSymbol "_init") err') ->
+      runtimeError' err' "Don't export _init object."
     PieExprAtom (WithErrorInfo (PieSymbol x) e') -> pure $ WithErrorInfo x e'
     _ -> runtimeError' err "Export syntax invalid."
   exports' <- forM exports $ \c -> (unError c ,) <$> lookupEnv c
@@ -61,23 +74,25 @@ importPathEquals :: FilePath -> FilePath -> Bool
 importPathEquals = equalFilePath
 
 importExports :: PieImportState -> FilePath -> PieEval PieEnv
-importExports importState path = do
+importExports importState relativePath = do
   curAlready <- liftIO $ readIORef $
     pieImportStateAlreadyImported importState
-  case find (importPathEquals path . fst) curAlready of
+  let lastFile = head $ pieImportStateRoute importState
+      lastFileDir = takeDirectory lastFile
+      relativeToPwdPath = joinPath [lastFileDir, relativePath]
+  path' <- liftIO $  makeAbsolute relativeToPwdPath
+  case find (importPathEquals path' . fst) curAlready of
     Just x -> pure $ snd x
     Nothing -> do
-      let lastFile = head $ pieImportStateRoute importState
-          lastFileDir = takeDirectory lastFile
-      file <- liftIO $ parseFromFile $ joinPath [lastFileDir, path]
+      file <- liftIO $ parseFromFile path'
       case file of
         Right x -> do
           e <-
             runInEnv runtime $
               flip loadExports x $ importState
-                { pieImportStateRoute = path : pieImportStateRoute importState }
+                { pieImportStateRoute = path' : pieImportStateRoute importState }
           liftIO $ writeIORef (pieImportStateAlreadyImported importState) $
-            (path, e) : curAlready
+            (path', e) : curAlready
           return e
         Left x -> liftIO (putStrLn x >> exitFailure)
 

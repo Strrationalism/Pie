@@ -20,4 +20,4 @@ main :: IO ()
 main = do
   x <- runEval (parseExports "D:/Repos/build.pie") $
     PieEvalContext runtime [] True
-  print x
+  pure ()
