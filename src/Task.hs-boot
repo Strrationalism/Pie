@@ -1,4 +1,4 @@
-module Task (PieTask) where
+module Task (PieTaskDefinition) where
 
 
-data PieTask
+data PieTaskDefinition

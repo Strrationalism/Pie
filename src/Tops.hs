@@ -16,7 +16,7 @@ import System.Directory (makeAbsolute)
 import System.Exit ( exitFailure )
 import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
-import Task (PieTask(pieTaskName), parsePieTask)
+import Task (PieTaskDefinition(pieTaskName), parsePieTask)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr

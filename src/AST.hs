@@ -7,7 +7,7 @@ import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
 import GHC.Float.RealFracMethods (properFractionDoubleInt)
 import Control.Concurrent (MVar, readMVar)
 import GHC.IO (unsafePerformIO)
-import {-# SOURCE #-} Task (PieTask)
+import {-# SOURCE #-} Task (PieTaskDefinition)
 import {-# SOURCE #-} Eval (PieEvalContext)
 -- Types
 
@@ -28,8 +28,8 @@ data PieValue' = PieNumber Double
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> IO PieExpr)
-               | PieTopAction String [PieExpr] PieEnv
-               | PieTopTask PieTask
+               | PieTopAction String [PieExpr] PieEnv  -- TODO: support params
+               | PieTopTask PieTaskDefinition
 
 instance Eq PieValue' where
   PieNumber n == PieNumber m = n == m
