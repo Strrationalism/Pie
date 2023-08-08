@@ -80,7 +80,11 @@ applyTaskParts (PieExprList1Symbol "out" s : next) ret = do
   (next', ret') <- applyTaskParts next ret
   let next'' = next' { pieTaskObjOutFiles = paths ++ pieTaskObjOutFiles next' }
   pure (next'', ret')
-applyTaskParts (PieExprList1Symbol "make" s : next) ret = undefined -- TODO
+applyTaskParts (PieExprList1Symbol "make" s : next) ret = do
+  env <- pieEvalContextEnv <$> getContext
+  (next', ret') <- applyTaskParts next ret
+  let next'' = next' { pieTaskObjMakeBodies = (s, env) : pieTaskObjMakeBodies next' }
+  pure (next'', ret')
 applyTaskParts (wtf : _) _ = fail $
   "Unknown definition in task:" ++ makeIndent 2 ++ prettyPrintExpr wtf
 
@@ -90,5 +94,6 @@ applyTask def args = do
   when (length params /= length args) $
     fail $
       "Invalid argument to call task " ++ show (pieTaskDefinitionName def) ++ "."
-  runInEnv (zip params (map noErrorInfo args) ++ runtime) $
-    applyTaskParts (pieTaskDefinitionBody def) PieNil
+  runInEnv (zip params (map noErrorInfo args) ++ runtime) $ do
+    (x, y) <- applyTaskParts (pieTaskDefinitionBody def) PieNil
+    pure (x { pieTaskObjDefinition = def }, y)

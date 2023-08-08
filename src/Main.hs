@@ -27,5 +27,5 @@ main = do
       x' <- runAction (snd x) []
       forM_ x' $ \taskObj ->
         liftIO $ do
-          putStr $ pieTaskDefinitionName $ pieTaskObjDefinition taskObj
+          putStrLn $ pieTaskDefinitionName $ pieTaskObjDefinition taskObj
 
