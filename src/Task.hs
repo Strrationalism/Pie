@@ -13,6 +13,7 @@ import Error (noErrorInfo, unError)
 import System.Directory (makeAbsolute)
 import Control.Monad.IO.Class (liftIO)
 import Runtime
+import System.FilePath (normalise)
 
 data PieTaskDefinition = PieTaskDefinition
   { pieTaskDefinitionBody :: [PieExpr]
@@ -28,7 +29,7 @@ getStringRecursion exprs = do
   pure $ concat s
 
 getAbsPaths :: [String] -> PieEval [String]
-getAbsPaths x = liftIO $ mapM makeAbsolute x
+getAbsPaths x = liftIO $ mapM (fmap normalise . makeAbsolute) x
 
 evalAbsPaths :: [PieExpr] -> PieEval [String]
 evalAbsPaths x = do
