@@ -652,7 +652,7 @@ functions =
   , ("string-trim", mapString $ dropWhileEnd isSpace . dropWhile isSpace)
   , ("map", map')
   , ("filter", filter')
-  , ("flatMap", flatMap')
+  , ("flat-map", flatMap')
   , ("exists", exists')
   , ("take-while", takeWhile')
   , ("skip-while", skipWhile')

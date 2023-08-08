@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-module Tops ( parseExports ) where
+module Tops ( parseExports, runAction, findDefaultAction ) where
 
 import AST
 import Control.Monad (forM, forM_, when)
@@ -16,7 +16,7 @@ import System.Directory (makeAbsolute)
 import System.Exit ( exitFailure )
 import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
-import Task (PieTaskDefinition(pieTaskName), parsePieTask)
+import Task (PieTaskDefinition(..), parsePieTask, PieTaskObj)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
@@ -27,16 +27,24 @@ data PieImportState = PieImportState
   { pieImportStateRoute :: [FilePath]
   , pieImportStateAlreadyImported :: IORef [(FilePath, PieEnv)] }
 
-runAction :: PieValue -> PieEval ()
-runAction (UnError (PieTopAction _ body env)) =
-  void $ runInEnv env $ evalStatements body
-runAction (WithErrorInfo x err) =
+runAction :: PieValue -> [PieValue'] -> PieEval [PieTaskObj]
+runAction (UnError (PieTopAction name body params env)) args = do
+  when (length params /= length args) $
+    fail $
+      "Arguments count is not equals parameters when calling action " ++
+      show name
+  tasks <- liftIO $ newIORef []
+  void $ runInEnv (zip params (map noErrorInfo args) ++ runtime) $
+    flip runWithModifiedContext (evalStatements body) $ \ctx ->
+      ctx { pieEvalContextEnv = env , pieEvalContextTasks = Just tasks}
+  liftIO $ readIORef tasks
+runAction (WithErrorInfo x err) _ =
   runtimeError' err $ "\'" ++ show x ++ "\' is not an action."
 
 loadExports :: PieImportState -> [PieExpr] -> PieEval PieEnv
 loadExports _ [] = do
   initObjects <- filter ((== "_init") . fst) . pieEvalContextEnv <$> getContext
-  mapM_ runAction (reverse $ map snd initObjects)
+  mapM_ (`runAction` []) (reverse $ map snd initObjects)
   pure []
 loadExports impState (PieTopDefinition "import" err imports : next) = do
   let currentFileName = head $ pieImportStateRoute impState
@@ -55,11 +63,16 @@ loadExports i (PieTopDefinition "defines" _ d : next) =
   runWithDefinesSyntax d $ loadExports i next
 loadExports i (PieTopDefinition "task" err' t : next) = do
   task <- parsePieTask t
-  runWithNewVar (pieTaskName task) (WithErrorInfo (PieTopTask task) err') $
+  runWithNewVar (pieTaskDefinitionName task) (WithErrorInfo (PieTopTask task) err') $
     loadExports i next
 loadExports i (PieTopDefinition "action" e (PieExprSymbol n : b) : k) = do
   env <- pieEvalContextEnv <$> getContext
-  let action = PieTopAction n b env
+  let action = PieTopAction n b [] env
+  runWithNewVar n (WithErrorInfo action e) (loadExports i k)
+loadExports i (PieTopDefinition "action" e (PieExprList1Symbol n params : b) : k) = do
+  env <- pieEvalContextEnv <$> getContext
+  params' <- forM params getSymbol
+  let action = PieTopAction n b params' env
   runWithNewVar n (WithErrorInfo action e) (loadExports i k)
 loadExports i (PieTopDefinition "export" err e : next) = do
   exports <- forM e $ \case
@@ -105,3 +118,6 @@ parseExports path = do
   flip importExports path $ PieImportState
     { pieImportStateAlreadyImported = a
     , pieImportStateRoute = [] }
+
+findDefaultAction :: PieEnv -> Maybe (String, PieValue)
+findDefaultAction = find (\case (_, UnError (PieTopAction {})) -> True; _ -> False)

@@ -12,6 +12,7 @@ module Eval
   , runWithDefineSyntax
   , runWithNewVar
   , runWithNewVars
+  , runWithModifiedContext
   , fail
   , runtimeError'
   , tryLookupEnv
@@ -21,8 +22,8 @@ module Eval
   , evalPieCodeUnsafe ) where
 
 import AST
-import Control.Monad (ap)
-import Data.Maybe (fromMaybe, catMaybes)
+import Control.Monad (ap, when)
+import Data.Maybe (fromMaybe, catMaybes, isNothing)
 import Error
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Foldable (foldl')
@@ -31,11 +32,16 @@ import Control.Exception (Exception, throw, try)
 import Data.Text (Text)
 import Parser (parseFromText)
 import System.IO.Unsafe (unsafePerformIO)
+import {-# SOURCE #-} Task
+import {-# SOURCE #-} Tops
+import Data.IORef
+import Data.Functor (void)
 
 data PieEvalContext = PieEvalContext
   { pieEvalContextEnv :: PieEnv
   , pieEvalContextCallStack :: [WithErrorInfo String]
-  , pieEvalContextPrintEnabled :: Bool }
+  , pieEvalContextPrintEnabled :: Bool
+  , pieEvalContextTasks :: Maybe (IORef [PieTaskObj]) }
 
 -- Pie Eval Monad
 
@@ -161,15 +167,25 @@ evalExpr (PieExprList1AtomWithErrorInfo f errInfo args) = do
         ctx <- getContext
         a <- liftIO $ f'' args ctx
         evalExpr a
+    PieTopAction {} -> do
+      taskSlot <- pieEvalContextTasks <$> getContext
+      when (isNothing taskSlot) $
+        fail "Do not call action in \"make\" body."
+      args' <- mapM evalExpr args
+      void $ runAction f' $ map unError args'
+      return $ noErrorInfo PieNil
+    PieTopTask task -> do
+      args' <- mapM evalExpr args
+      (taskObj, ret) <- applyTask task $ map unError args'
+      taskSlot <- pieEvalContextTasks <$> getContext
+      taskSlot' <- maybe (fail "Do not call task in \"make\" body.") pure taskSlot
+      liftIO $ modifyIORef taskSlot' (taskObj :)
+      pure $ noErrorInfo ret
     x -> runtimeError' errInfo $ show x ++ " is not callable."
 evalExpr (PieExprList1 f args) = do
   f' <- PieExprAtom <$> evalExpr f
   evalExpr (PieExprList1 f' args)
 evalExpr x = fail $ prettyPrintExpr x
-
-getSymbol :: PieExpr -> PieEval String
-getSymbol (PieExprAtom (UnError (PieSymbol x))) = pure x
-getSymbol x = fail $ "Expected a symbol, got " ++ prettyPrintExpr x ++ "."
 
 processDefineSyntax :: [PieExpr] -> PieEval (String, PieValue)
 processDefineSyntax [PieExprAtom (UnError (PieSymbol name)), body] =
@@ -226,4 +242,5 @@ evalPieCodeUnsafe pieCode env =
     PieEvalContext
       { pieEvalContextEnv = env
       , pieEvalContextCallStack = []
-      , pieEvalContextPrintEnabled = True }
+      , pieEvalContextPrintEnabled = True
+      , pieEvalContextTasks = Nothing }

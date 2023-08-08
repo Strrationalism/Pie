@@ -3,12 +3,12 @@
 module AST where
 
 import Data.SExpresso.SExpr (SExpr (SAtom, SList))
-import Error (WithErrorInfo (WithErrorInfo), unError, ErrorInfo)
+import Error
 import GHC.Float.RealFracMethods (properFractionDoubleInt)
 import Control.Concurrent (MVar, readMVar)
 import GHC.IO (unsafePerformIO)
 import {-# SOURCE #-} Task (PieTaskDefinition)
-import {-# SOURCE #-} Eval (PieEvalContext)
+import {-# SOURCE #-} Eval
 -- Types
 
 type PieEnv = [(String, PieValue)]
@@ -28,7 +28,7 @@ data PieValue' = PieNumber Double
                | PieHaskellFunction
                   String
                   ([PieExpr] -> PieEvalContext -> IO PieExpr)
-               | PieTopAction String [PieExpr] PieEnv  -- TODO: support params
+               | PieTopAction String [PieExpr] [String] PieEnv
                | PieTopTask PieTaskDefinition
 
 instance Eq PieValue' where
@@ -57,7 +57,7 @@ instance Show PieValue' where
     "(lambda " ++ either (++ " ") (\a' -> "(" ++ unwords a' ++ ") ") a ++
     prettyPrintExprs b ++ ")"
   show (PieHaskellFunction x _) = "(lambda <" ++ x ++ ">)"
-  show (PieTopAction name _ _) = "(action " ++ name ++ ")"
+  show (PieTopAction name _ _ _) = "(action " ++ name ++ ")"
   show (PieTopTask {}) = "(task)"
 
 type PieValue = WithErrorInfo PieValue'
@@ -89,6 +89,11 @@ pattern PieExprList1AtomWithErrorInfo x err xs <-
 pattern PieExprList1Symbol :: String -> [PieExpr] -> PieExpr
 pattern PieExprList1Symbol x xs <- PieExprList1 (PieExprSymbol x) xs
 
+pattern PieExprList1SymbolWithErrorInfo ::
+  String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
+pattern PieExprList1SymbolWithErrorInfo s err xs =
+  PieExprList1 (PieExprAtom (WithErrorInfo (PieSymbol s) err)) xs
+
 -- Pretty Print
 
 valueToString' :: PieValue' -> String
@@ -106,6 +111,10 @@ unlines' :: [String] -> String
 unlines' [] = []
 unlines' [a] = a
 unlines' (x:xs) = x ++ "\n" ++ unlines' xs
+
+getSymbol :: PieExpr -> PieEval String
+getSymbol (PieExprAtom (UnError (PieSymbol x))) = pure x
+getSymbol x = fail $ "Expected a symbol, got " ++ prettyPrintExpr x ++ "."
 
 prettyPrintExprs' :: Int -> [PieExpr] -> String
 prettyPrintExprs' i = unlines' . map (prettyPrintExpr' i)
