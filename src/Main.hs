@@ -3,9 +3,10 @@ module Main (main) where
 import Eval
 import Runtime
 import Tops
-import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
-import Task (PieTaskDefinition(pieTaskDefinitionName), PieTaskObj (pieTaskObjDefinition))
+import TaskRunner (topoSort)
+import Control.Monad (forM_)
+import Task
 
 {- runFromFile :: FilePath -> IO ()
 runFromFile path = do
@@ -25,7 +26,14 @@ main = do
     Nothing -> fail "Can not find default action."
     Just x -> flip runEval (PieEvalContext runtime [] True Nothing)$ do
       x' <- runAction (snd x) []
-      forM_ x' $ \taskObj ->
-        liftIO $ do
-          putStrLn $ pieTaskDefinitionName $ pieTaskObjDefinition taskObj
+      let x'' = either error id (topoSort x')
+      forM_ x'' $ \x''' -> do
+        liftIO $ putStrLn "- Batch -"
+        forM_ x''' $ \taskObj ->
+          liftIO $ do
+            putStr $ pieTaskDefinitionName $ pieTaskObjDefinition taskObj
+            putStr " "
+            putStr $ unwords (pieTaskObjInFiles taskObj)
+            putStr " => "
+            putStrLn $ unwords (pieTaskObjOutFiles taskObj)
 
