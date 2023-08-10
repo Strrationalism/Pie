@@ -33,6 +33,7 @@ executable Pie
                      , filepattern
                      , filepath
                      , directory
+                     , parallel-io
 
   ghc-options:         -Wall
                        -Wcompat

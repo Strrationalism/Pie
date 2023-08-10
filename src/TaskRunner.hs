@@ -1,9 +1,18 @@
-module TaskRunner (topoSort) where
+module TaskRunner
+  ( topoSort
+  , runTaskBatch
+  , singleThreaded
+  , multiThreaded
+  ) where
 
 import Task
 import Data.List (intersectBy, partition)
 import System.FilePath (equalFilePath)
 import AST (makeIndent)
+import Control.Exception
+import Eval
+import Data.Maybe (catMaybes)
+import Control.Monad.IO.Class (liftIO)
 
 hasDependency :: PieTaskObj -> [PieTaskObj] -> Bool
 hasDependency x ls =
@@ -28,3 +37,24 @@ topoSort ls = do
     else do
       next' <- topoSort next
       pure $ cur : next'
+
+type BatchRunner = [PieTaskObj] -> PieEval [SomeException]
+
+runTask :: PieTaskObj -> PieEval (Maybe SomeException)
+runTask = undefined
+
+runTaskBatch :: BatchRunner -> [[PieTaskObj]] -> PieEval [SomeException]
+runTaskBatch _ [] = pure []
+runTaskBatch f (x:xs) = do
+  e <- f x
+  case e of [] -> runTaskBatch f xs
+            e' -> pure e'
+
+singleThreaded :: BatchRunner
+singleThreaded xs = catMaybes <$> mapM runTask xs
+
+multiThreaded :: BatchRunner
+multiThreaded xs = do
+  ctx <- getContext
+  x <- liftIO $ mapM (flip runEval ctx . runTask) xs
+  pure $ catMaybes x
