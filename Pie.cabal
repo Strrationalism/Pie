@@ -25,6 +25,7 @@ executable Pie
                      , Tops
                      , Task
                      , TaskRunner
+
   build-depends:       base >= 4.7 && < 5
                      , sexpresso
                      , megaparsec
@@ -34,6 +35,7 @@ executable Pie
                      , filepath
                      , directory
                      , parallel-io
+                     , time
 
   ghc-options:         -Wall
                        -Wcompat

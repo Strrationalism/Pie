@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Eval
   ( PieEval ( PieEval )
   , PieEvalError ( pieEvalErrorMessage )
@@ -28,7 +29,7 @@ import Error
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Foldable (foldl')
 import Data.Data (Typeable)
-import Control.Exception (Exception, throw, try)
+import Control.Exception
 import Data.Text (Text)
 import Parser (parseFromText)
 import System.IO.Unsafe (unsafePerformIO)
@@ -229,7 +230,12 @@ evalStatements (x:xs) = evalExpr x >> evalStatements xs
 runProtected :: PieEval r -> PieEval (Either PieEvalError r)
 runProtected k = do
   ctx <- getContext
-  liftIO $ try (runEval k ctx)
+  liftIO $ fmap Right (runEval k ctx)
+    `catch` (\(e :: PieEvalError) -> pure $ Left e)
+    `catch` \(e :: SomeException) -> pure $ Left $ PieEvalError
+      { pieEvalErrorContext = ctx
+      , pieEvalErrorMessage = displayException e
+      , pieEvalErrorFileInfo = Nothing }
 
 evalPieCode :: Text -> PieEval PieValue
 evalPieCode pieCode = do

@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 module TaskRunner
   ( topoSort
   , runTaskBatch
@@ -9,10 +10,13 @@ import Task
 import Data.List (intersectBy, partition)
 import System.FilePath (equalFilePath)
 import AST (makeIndent)
-import Control.Exception
 import Eval
 import Data.Maybe (catMaybes)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad (forM, foldM)
+import System.Directory (doesFileExist, getModificationTime)
+import Data.Time.Clock (UTCTime (UTCTime))
+import Data.Foldable (foldl')
 
 hasDependency :: PieTaskObj -> [PieTaskObj] -> Bool
 hasDependency x ls =
@@ -38,12 +42,46 @@ topoSort ls = do
       next' <- topoSort next
       pure $ cur : next'
 
-type BatchRunner = [PieTaskObj] -> PieEval [SomeException]
+type BatchRunner = [PieTaskObj] -> PieEval [PieEvalError]
 
-runTask :: PieTaskObj -> PieEval (Maybe SomeException)
-runTask = undefined
+taskOptimizable :: PieTaskObj -> PieEval Bool
+taskOptimizable obj = foldl' andM (pure True)
+  [ atLeastOneInputFiles,
+    outputFileExists,
+    outFileUpdated ]
+  where
+    outFiles = pieTaskObjOutFiles obj
+    inFiles = pieTaskObjInFiles obj
+    atLeastOneInputFiles :: PieEval Bool
+    atLeastOneInputFiles = return $ null inFiles
+    outputFileExists :: PieEval Bool
+    outputFileExists = fmap and $ Control.Monad.forM outFiles $ liftIO . doesFileExist
+    newestInModifyTime :: PieEval UTCTime
+    newestInModifyTime = fmap maximum $ Control.Monad.forM inFiles $ liftIO . getModificationTime
+    oldestOutModifyTime :: PieEval UTCTime
+    oldestOutModifyTime = fmap minimum $ Control.Monad.forM outFiles $ liftIO . getModificationTime
+    outFileUpdated :: PieEval Bool
+    outFileUpdated = do
+      oldestOutModifyTime' <- oldestOutModifyTime
+      newestInModifyTime' <- newestInModifyTime
+      return $ oldestOutModifyTime' > newestInModifyTime'
+    andM :: PieEval Bool -> PieEval Bool -> PieEval Bool
+    andM a b = do
+      a' <- a
+      if not a' then return False else b
 
-runTaskBatch :: BatchRunner -> [[PieTaskObj]] -> PieEval [SomeException]
+runTask :: PieTaskObj -> PieEval (Maybe PieEvalError)
+runTask obj = do
+  optimizable <- taskOptimizable obj
+  if optimizable then pure Nothing else
+    Control.Monad.foldM runBody Nothing $ pieTaskObjMakeBodies obj
+  where runBody (Just x) _ = pure $ Just x
+        runBody Nothing (body, env) = do
+          r <- runProtected $ runInEnv env $ evalStatements body
+          case r of Left exn -> pure $ Just exn
+                    Right _ -> pure Nothing
+
+runTaskBatch :: BatchRunner -> [[PieTaskObj]] -> PieEval [PieEvalError]
 runTaskBatch _ [] = pure []
 runTaskBatch f (x:xs) = do
   e <- f x
