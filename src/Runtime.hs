@@ -8,7 +8,7 @@ module Runtime
   , quotedWords ) where
 
 import AST
-import Control.Concurrent (newMVar, readMVar)
+import Control.Concurrent (newMVar, MVar, readMVar, takeMVar, putMVar)
 import Control.Concurrent.MVar (swapMVar)
 import Control.Monad (zipWithM, when)
 import Control.Monad.IO.Class (liftIO)
@@ -32,6 +32,7 @@ import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (readCreateProcessWithExitCode, shell)
+import GHC.IO (unsafePerformIO)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -152,11 +153,17 @@ syntaxes =
 
 
 -- Functions
+{-# NOINLINE displayLock #-}
+displayLock :: MVar ()
+displayLock = unsafePerformIO $ newMVar ()
 
 display :: PieFunc
 display args = do
   enabled <- pieEvalContextPrintEnabled <$> getContext
-  when enabled $ liftIO $ putStrLn (list2String args)
+  when enabled $ liftIO $ do
+    takeMVar displayLock
+    putStrLn (list2String args)
+    putMVar displayLock ()
   >> pure PieNil
 
 trace' :: PieFunc
