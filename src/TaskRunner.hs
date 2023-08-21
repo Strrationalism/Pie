@@ -17,6 +17,7 @@ import Control.Monad (forM, foldM)
 import System.Directory (doesFileExist, getModificationTime)
 import Data.Time.Clock (UTCTime (UTCTime))
 import Data.Foldable (foldl')
+import Control.Concurrent.ParallelIO (parallel)
 
 hasDependency :: PieTaskObj -> [PieTaskObj] -> Bool
 hasDependency x ls =
@@ -94,5 +95,5 @@ singleThreaded xs = catMaybes <$> mapM runTask xs
 multiThreaded :: BatchRunner
 multiThreaded xs = do
   ctx <- getContext
-  x <- liftIO $ mapM (flip runEval ctx . runTask) xs
+  x <- liftIO $ parallel $ map (flip runEval ctx . runTask) xs
   pure $ catMaybes x
