@@ -21,10 +21,10 @@ runFromFile path = do
 main :: IO ()
 main = do
   exports <- runEval (parseExports "D:/Repos/build.pie") $
-    PieEvalContext runtime [] True Nothing
+    PieEvalContext runtime [] True Nothing []
   case findDefaultAction exports of
     Nothing -> fail "Can not find default action."
-    Just x -> flip runEval (PieEvalContext runtime [] True Nothing)$ do
+    Just x -> flip runEval (PieEvalContext runtime [] True Nothing [])$ do
       x' <- runAction (snd x) []
       let x'' = either error id (topoSort x')
       forM_ x'' $ \x''' -> do

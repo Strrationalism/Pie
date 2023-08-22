@@ -17,7 +17,7 @@ import Data.Char (isSpace)
 import Data.Fixed (mod')
 import Data.Foldable (foldl', forM_)
 import Data.List (dropWhileEnd)
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromMaybe)
 import Data.Ord (clamp)
 import Data.Text (Text, pack)
 import Data.Traversable (forM)
@@ -566,6 +566,20 @@ invoke [UnError (PieList args)] =
   fmap unError <$> evalExpr $ PieExprList $ map (PieExprAtom . noErrorInfo) args
 invoke _ = invalidArg
 
+getOpt :: PieFunc
+getOpt [UnError (PieString str)] =
+  fromMaybe (PieBool False) . lookup str . pieEvalContextCmdArgs <$> getContext
+getOpt _ = invalidArg
+
+defaultWith :: PieFunc
+defaultWith [UnError v, UnError PieNil] = pure v
+defaultWith [_, UnError v] = pure v
+defaultWith _ = invalidArg
+
+parseNumber :: PieFunc
+parseNumber [UnError (PieString s)] = pure $ PieNumber $ read s
+parseNumber _ = invalidArg
+
 functions :: [(String, PieFunc)]
 functions =
   [ ("display", display)
@@ -575,6 +589,7 @@ functions =
   , ("nil?", isTypeOf (== PieNil))
   , ("list?", isTypeOf $ \case PieList _ -> True; _ -> False)
   , ("number?", isTypeOf $ \case PieNumber _ -> True; _ -> False)
+  , ("parse-number", parseNumber)
   , ("bool?", isTypeOf $ \case PieBool _ -> True; _ -> False)
   , ("string?", isTypeOf $ \case PieString _ -> True; _ -> False)
   , ("function?", isTypeOf $ \case PieLambda {} -> True; PieHaskellFunction _ _ -> True; _ -> False)
@@ -664,4 +679,6 @@ functions =
   , ("take-while", takeWhile')
   , ("skip-while", skipWhile')
   , ("invoke", invoke)
+  , ("get-opt", getOpt)
+  , ("default-with", defaultWith)
   ]

@@ -42,7 +42,8 @@ data PieEvalContext = PieEvalContext
   { pieEvalContextEnv :: PieEnv
   , pieEvalContextCallStack :: [WithErrorInfo String]
   , pieEvalContextPrintEnabled :: Bool
-  , pieEvalContextTasks :: Maybe (IORef [PieTaskObj]) }
+  , pieEvalContextTasks :: Maybe (IORef [PieTaskObj])
+  , pieEvalContextCmdArgs :: [(String, PieValue')] }
 
 -- Pie Eval Monad
 
