@@ -25,6 +25,7 @@ executable Pie
                      , Tops
                      , Task
                      , TaskRunner
+                     , Option
 
   build-depends:       base >= 4.7 && < 5
                      , sexpresso

@@ -7,6 +7,7 @@ import Control.Monad.IO.Class (liftIO)
 import TaskRunner (topoSort)
 import Control.Monad (forM_)
 import Task
+import System.Directory.Internal.Prelude (getArgs)
 
 {- runFromFile :: FilePath -> IO ()
 runFromFile path = do
@@ -18,8 +19,8 @@ runFromFile path = do
 
  -}
 
-main :: IO ()
-main = do
+main2 :: IO ()
+main2 = do
   exports <- runEval (parseExports "D:/Repos/build.pie") $
     PieEvalContext runtime [] True Nothing []
   case findDefaultAction exports of
@@ -37,3 +38,5 @@ main = do
             putStr " => "
             putStrLn $ unwords (pieTaskObjOutFiles taskObj)
 
+main :: IO ()
+main = getArgs >>= print
