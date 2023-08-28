@@ -4,6 +4,7 @@ module TaskRunner
   , runTaskBatch
   , singleThreaded
   , multiThreaded
+  , runTaskBatch'
   ) where
 
 import Task
@@ -18,6 +19,7 @@ import System.Directory (doesFileExist, getModificationTime)
 import Data.Time.Clock (UTCTime (UTCTime))
 import Data.Foldable (foldl')
 import Control.Concurrent.ParallelIO (parallel)
+import Control.Exception.Base (runtimeError)
 
 hasDependency :: PieTaskObj -> [PieTaskObj] -> Bool
 hasDependency x ls =
@@ -97,3 +99,10 @@ multiThreaded xs = do
   ctx <- getContext
   x <- liftIO $ parallel $ map (flip runEval ctx . runTask) xs
   pure $ catMaybes x
+
+runTaskBatch' :: BatchRunner -> [PieTaskObj] -> PieEval [PieEvalError]
+runTaskBatch' runner tasks =
+  case topoSort tasks of
+    Left e -> runtimeError' Nothing e
+    Right r -> runTaskBatch runner r
+

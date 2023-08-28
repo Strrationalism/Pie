@@ -250,4 +250,5 @@ evalPieCodeUnsafe pieCode env =
       { pieEvalContextEnv = env
       , pieEvalContextCallStack = []
       , pieEvalContextPrintEnabled = True
-      , pieEvalContextTasks = Nothing }
+      , pieEvalContextTasks = Nothing
+      , pieEvalContextCmdArgs = [] }

@@ -568,7 +568,9 @@ invoke _ = invalidArg
 
 getOpt :: PieFunc
 getOpt [UnError (PieString str)] =
-  fromMaybe (PieBool False) . lookup str . pieEvalContextCmdArgs <$> getContext
+  getOpt [noErrorInfo (PieString str), noErrorInfo PieNil]
+getOpt [UnError (PieString str), UnError v] =
+  fromMaybe v . lookup str . pieEvalContextCmdArgs <$> getContext
 getOpt _ = invalidArg
 
 defaultWith :: PieFunc

@@ -1,11 +1,12 @@
 {-# LANGUAGE PatternSynonyms #-}
-module Option (PieOption, parseOptions) where
+module Option (PieOption (..), parseOptions) where
 
 data PieOption = PieOption
   { pieOptionActionName :: String
   , pieOptionActionArgs :: [String]
   , pieOptionSingleThread :: Bool
-  , pieOptionOptions :: [(String, Maybe String)] }
+  , pieOptionOptions :: [(String, Maybe String)]
+  } deriving ( Show )
 
 defaultOption :: PieOption
 defaultOption = PieOption

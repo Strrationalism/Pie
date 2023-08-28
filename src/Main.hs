@@ -4,39 +4,41 @@ import Eval
 import Runtime
 import Tops
 import Control.Monad.IO.Class (liftIO)
-import TaskRunner (topoSort)
-import Control.Monad (forM_)
-import Task
-import System.Directory.Internal.Prelude (getArgs)
-
-{- runFromFile :: FilePath -> IO ()
-runFromFile path = do
-  result <- parseFromFile path
-  case result of
-    Left x -> putStrLn x
-    Right y -> void $ runEval (evalStatements y) $
-                PieEvalContext runtime [] True
-
- -}
-
-main2 :: IO ()
-main2 = do
-  exports <- runEval (parseExports "D:/Repos/build.pie") $
-    PieEvalContext runtime [] True Nothing []
-  case findDefaultAction exports of
-    Nothing -> fail "Can not find default action."
-    Just x -> flip runEval (PieEvalContext runtime [] True Nothing [])$ do
-      x' <- runAction (snd x) []
-      let x'' = either error id (topoSort x')
-      forM_ x'' $ \x''' -> do
-        liftIO $ putStrLn "- Batch -"
-        forM_ x''' $ \taskObj ->
-          liftIO $ do
-            putStr $ pieTaskDefinitionName $ pieTaskObjDefinition taskObj
-            putStr " "
-            putStr $ unwords (pieTaskObjInFiles taskObj)
-            putStr " => "
-            putStrLn $ unwords (pieTaskObjOutFiles taskObj)
+import TaskRunner
+import Option
+import Data.Bifunctor
+import AST
+import Control.Monad
+import System.Environment
+import Error
 
 main :: IO ()
-main = getArgs >>= print
+main = do
+  args <- parseOptions <$> getArgs
+  let context = PieEvalContext
+        { pieEvalContextEnv = runtime
+        , pieEvalContextCallStack = []
+        , pieEvalContextPrintEnabled = True
+        , pieEvalContextTasks = Nothing
+        , pieEvalContextCmdArgs =
+           map (second $ maybe PieNil PieString) (pieOptionOptions args)
+        }
+
+  flip runEval context $ do
+    exports <- parseExports "./build.pie"
+    let action =
+          if null $ pieOptionActionName args
+            then snd <$> findDefaultAction exports
+            else lookup (pieOptionActionName args) exports
+    case action of
+      Just action'@(UnError (PieTopAction {})) -> do
+        tasks <- runAction action' (map PieString $ pieOptionActionArgs args)
+        let runner =
+              if pieOptionSingleThread args
+                then singleThreaded
+                else multiThreaded
+        errs <- runTaskBatch' runner tasks
+        unless (null errs) $ liftIO $
+          forM_ errs print
+      _ -> runtimeError' Nothing $
+        "Action " ++ pieOptionActionName args ++ " not exported."
