@@ -1,6 +1,8 @@
 {-# LANGUAGE PatternSynonyms #-}
 module Option (PieOption (..), parseOptions) where
 
+import System.Exit ( exitSuccess )
+
 data PieOption = PieOption
   { pieOptionActionName :: String
   , pieOptionActionArgs :: [String]
@@ -15,10 +17,16 @@ defaultOption = PieOption
   , pieOptionSingleThread = False
   , pieOptionOptions = [] }
 
-parseOptions :: [String] -> PieOption
+printHelpAndExit :: IO a
+printHelpAndExit = do
+  putStrLn "pie [-s] [actionName] [--args] [--args [args]]"
+  exitSuccess
+
+parseOptions :: [String] -> IO PieOption
+parseOptions ["-h"] = printHelpAndExit
 parseOptions ("-s":next) =
-  parseOptions1 next $ defaultOption { pieOptionSingleThread = True }
-parseOptions next = parseOptions1 next defaultOption
+  pure $ parseOptions1 next $ defaultOption { pieOptionSingleThread = True }
+parseOptions next = pure $ parseOptions1 next defaultOption
 
 pattern PieOptionLabel :: String -> String
 pattern PieOptionLabel x = '-':'-':x

@@ -11,10 +11,12 @@ import AST
 import Control.Monad
 import System.Environment
 import Error
+import System.Directory.Internal.Prelude (exitFailure)
+import System.Directory (doesFileExist)
 
 main :: IO ()
 main = do
-  args <- parseOptions <$> getArgs
+  args <- getArgs >>= parseOptions
   let context = PieEvalContext
         { pieEvalContextEnv = runtime
         , pieEvalContextCallStack = []
@@ -25,6 +27,10 @@ main = do
         }
 
   flip runEval context $ do
+    buildFileExists <- liftIO $ doesFileExist "./build.pie"
+    unless buildFileExists $ liftIO $ do
+      putStrLn "\"./build.pie\" not exists."
+      exitFailure
     exports <- parseExports "./build.pie"
     let action =
           if null $ pieOptionActionName args
