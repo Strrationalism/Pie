@@ -24,6 +24,10 @@ main = do
         , pieEvalContextTasks = Nothing
         , pieEvalContextCmdArgs =
            map (second $ maybe PieNil PieString) (pieOptionOptions args)
+        , pieEvalContextTaskRunner =
+            if pieOptionSingleThread args
+                then singleThreaded
+                else multiThreaded
         }
 
   flip runEval context $ do
@@ -38,13 +42,6 @@ main = do
             else lookup (pieOptionActionName args) exports
     case action of
       Just action'@(UnError (PieTopAction {})) -> do
-        tasks <- runAction action' (map PieString $ pieOptionActionArgs args)
-        let runner =
-              if pieOptionSingleThread args
-                then singleThreaded
-                else multiThreaded
-        errs <- runTaskBatch' runner tasks
-        unless (null errs) $ liftIO $
-          forM_ errs print
+        runAction action' (map PieString $ pieOptionActionArgs args)
       _ -> runtimeError' Nothing $
         "Action " ++ pieOptionActionName args ++ " not exported."

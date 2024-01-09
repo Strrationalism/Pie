@@ -43,7 +43,8 @@ data PieEvalContext = PieEvalContext
   , pieEvalContextCallStack :: [WithErrorInfo String]
   , pieEvalContextPrintEnabled :: Bool
   , pieEvalContextTasks :: Maybe (IORef [PieTaskObj])
-  , pieEvalContextCmdArgs :: [(String, PieValue')] }
+  , pieEvalContextCmdArgs :: [(String, PieValue')]
+  , pieEvalContextTaskRunner :: [PieTaskObj] -> PieEval [PieEvalError] }
 
 -- Pie Eval Monad
 
@@ -251,4 +252,5 @@ evalPieCodeUnsafe pieCode env =
       , pieEvalContextCallStack = []
       , pieEvalContextPrintEnabled = True
       , pieEvalContextTasks = Nothing
-      , pieEvalContextCmdArgs = [] }
+      , pieEvalContextCmdArgs = []
+      , pieEvalContextTaskRunner = undefined }

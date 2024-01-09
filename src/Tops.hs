@@ -4,7 +4,7 @@
 module Tops ( parseExports, runAction, findDefaultAction ) where
 
 import AST
-import Control.Monad (forM, forM_, when)
+import Control.Monad (forM, forM_, when, unless)
 import Control.Monad.IO.Class ( liftIO )
 import Data.IORef (IORef, writeIORef, readIORef, newIORef)
 import Data.List (find)
@@ -18,6 +18,7 @@ import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
 import Task (PieTaskDefinition(..), parsePieTask, PieTaskObj)
 import Data.Maybe (listToMaybe, fromMaybe)
+import TaskRunner (runTaskBatch')
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
@@ -28,7 +29,7 @@ data PieImportState = PieImportState
   { pieImportStateRoute :: [FilePath]
   , pieImportStateAlreadyImported :: IORef [(FilePath, PieEnv)] }
 
-runAction :: PieValue -> [PieValue'] -> PieEval [PieTaskObj]
+runAction :: PieValue -> [PieValue'] -> PieEval ()
 runAction (UnError (PieTopAction name body params env)) args = do
   when (length params /= length args) $
     fail $
@@ -38,7 +39,11 @@ runAction (UnError (PieTopAction name body params env)) args = do
   void $ runInEnv (zip params (map noErrorInfo args) ++ runtime) $
     flip runWithModifiedContext (evalStatements body) $ \ctx ->
       ctx { pieEvalContextEnv = env , pieEvalContextTasks = Just tasks}
-  liftIO $ readIORef tasks
+  runner <- pieEvalContextTaskRunner <$> getContext
+  errs <- liftIO (readIORef tasks) >>= runTaskBatch' runner
+  unless (null errs) $ liftIO $
+    forM_ errs print
+
 runAction (WithErrorInfo x err) _ =
   runtimeError' err $ "\'" ++ show x ++ "\' is not an action."
 
