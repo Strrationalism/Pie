@@ -92,7 +92,6 @@ importPathEquals = equalFilePath
 
 importExports :: PieImportState -> FilePath -> PieEval PieEnv
 importExports importState relativePath = do
-  liftIO $ putStrLn relativePath
   curAlready <- liftIO $ readIORef $
     pieImportStateAlreadyImported importState
   let lastFile = listToMaybe $ pieImportStateRoute importState
