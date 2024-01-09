@@ -17,6 +17,7 @@ import System.Exit ( exitFailure )
 import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
 import Task (PieTaskDefinition(..), parsePieTask, PieTaskObj)
+import Data.Maybe (listToMaybe, fromMaybe)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
@@ -91,10 +92,11 @@ importPathEquals = equalFilePath
 
 importExports :: PieImportState -> FilePath -> PieEval PieEnv
 importExports importState relativePath = do
+  liftIO $ putStrLn relativePath
   curAlready <- liftIO $ readIORef $
     pieImportStateAlreadyImported importState
-  let lastFile = head $ pieImportStateRoute importState
-      lastFileDir = takeDirectory lastFile
+  let lastFile = listToMaybe $ pieImportStateRoute importState
+      lastFileDir = takeDirectory $ fromMaybe "./" lastFile
       relativeToPwdPath = joinPath [lastFileDir, relativePath]
   path' <- liftIO $  makeAbsolute relativeToPwdPath
   case find (importPathEquals path' . fst) curAlready of
