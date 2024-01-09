@@ -16,7 +16,7 @@ import System.Directory (makeAbsolute)
 import System.Exit ( exitFailure )
 import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
-import Task (PieTaskDefinition(..), parsePieTask, PieTaskObj)
+import Task (PieTaskDefinition(..), parsePieTask)
 import Data.Maybe (listToMaybe, fromMaybe)
 import TaskRunner (runTaskBatch')
 
@@ -41,8 +41,9 @@ runAction (UnError (PieTopAction name body params env)) args = do
       ctx { pieEvalContextEnv = env , pieEvalContextTasks = Just tasks}
   runner <- pieEvalContextTaskRunner <$> getContext
   errs <- liftIO (readIORef tasks) >>= runTaskBatch' runner
-  unless (null errs) $ liftIO $
+  unless (null errs) $ liftIO $ do
     forM_ errs print
+    exitFailure
 
 runAction (WithErrorInfo x err) _ =
   runtimeError' err $ "\'" ++ show x ++ "\' is not an action."
