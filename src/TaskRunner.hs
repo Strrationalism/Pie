@@ -56,7 +56,7 @@ taskOptimizable obj = foldl' andM (pure True)
     outFiles = pieTaskObjOutFiles obj
     inFiles = pieTaskObjInFiles obj
     atLeastOneInputFiles :: PieEval Bool
-    atLeastOneInputFiles = return $ null inFiles
+    atLeastOneInputFiles = return $ not $ null inFiles
     outputFileExists :: PieEval Bool
     outputFileExists = fmap and $ Control.Monad.forM outFiles $ liftIO . doesFileExist
     newestInModifyTime :: PieEval UTCTime
