@@ -12,7 +12,7 @@ category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
- 
+
 executable Pie
   hs-source-dirs:      src
   main-is:             Main.hs
@@ -47,3 +47,4 @@ executable Pie
                        -Wmissing-home-modules
                        -Wpartial-fields
                        -Wredundant-constraints
+                       -threaded -rtsopts -with-rtsopts=-N
