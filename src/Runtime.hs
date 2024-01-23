@@ -258,7 +258,10 @@ setVar _ = invalidArg
 
 shell'' :: PieFunc
 shell'' args = do
-  let shellCommand = list2String args
+  let unpackArgs (PieList s) = unwords $ map unpackArgs s
+      unpackArgs (PieString s) = s
+      unpackArgs s = show s
+      shellCommand = unwords $ map (unpackArgs . unError) args
   (exitCode, out, err) <-
     liftIO $ readCreateProcessWithExitCode (shell shellCommand) ""
   case exitCode of

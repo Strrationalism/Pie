@@ -12,7 +12,6 @@ import Control.Monad (forM, when)
 import Error (noErrorInfo, unError)
 import System.Directory (makeAbsolute)
 import Control.Monad.IO.Class (liftIO)
-import Runtime
 import System.FilePath (normalise)
 
 data PieTaskDefinition = PieTaskDefinition
@@ -95,6 +94,6 @@ applyTask def args = do
   when (length params /= length args) $
     fail $
       "Invalid argument to call task " ++ show (pieTaskDefinitionName def) ++ "."
-  runInEnv (zip params (map noErrorInfo args) ++ runtime) $ do
+  runWithNewVars (zip params (map noErrorInfo args)) $ do
     (x, y) <- applyTaskParts (pieTaskDefinitionBody def) PieNil
     pure (x { pieTaskObjDefinition = def }, y)
