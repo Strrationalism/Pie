@@ -41,7 +41,6 @@ import Data.Functor (void)
 data PieEvalContext = PieEvalContext
   { pieEvalContextEnv :: PieEnv
   , pieEvalContextCallStack :: [WithErrorInfo String]
-  , pieEvalContextPrintEnabled :: Bool
   , pieEvalContextTasks :: Maybe (IORef [PieTaskObj])
   , pieEvalContextCmdArgs :: [(String, PieValue')]
   , pieEvalContextTaskRunner :: [PieTaskObj] -> PieEval [PieEvalError] }
@@ -250,7 +249,6 @@ evalPieCodeUnsafe pieCode env =
     PieEvalContext
       { pieEvalContextEnv = env
       , pieEvalContextCallStack = []
-      , pieEvalContextPrintEnabled = True
       , pieEvalContextTasks = Nothing
       , pieEvalContextCmdArgs = []
       , pieEvalContextTaskRunner = undefined }

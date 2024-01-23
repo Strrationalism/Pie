@@ -10,7 +10,7 @@ module Runtime
 import AST
 import Control.Concurrent (newMVar, MVar, readMVar, takeMVar, putMVar)
 import Control.Concurrent.MVar (swapMVar)
-import Control.Monad (zipWithM, when)
+import Control.Monad (zipWithM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Bifunctor (second)
 import Data.Char (isSpace)
@@ -157,19 +157,11 @@ displayLock = unsafePerformIO $ newMVar ()
 
 display :: PieFunc
 display args = do
-  enabled <- pieEvalContextPrintEnabled <$> getContext
-  when enabled $ liftIO $ do
+  liftIO $ do
     takeMVar displayLock
     putStrLn (list2String args)
     putMVar displayLock ()
   >> pure PieNil
-
-trace' :: PieFunc
-trace' [x] = do
-  enabled <- pieEvalContextPrintEnabled <$> getContext
-  when enabled $ liftIO $ putStrLn $ valueToString x
-  pure $ unError x
-trace' _ = invalidArg
 
 list :: PieFunc
 list = pure . PieList . fmap unError
@@ -677,7 +669,6 @@ functions =
   , ("take-while", takeWhile')
   , ("take", mapListI $ \i -> PieList . take i)
   , ("temp-dir", tempDir)
-  , ("trace", trace')
   , ("unlines", unlines'')
   , ("unwords", unwords'')
   , ("valid-path?", isXXXPath isValid)

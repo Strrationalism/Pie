@@ -20,7 +20,6 @@ main = do
   let context = PieEvalContext
         { pieEvalContextEnv = runtime
         , pieEvalContextCallStack = []
-        , pieEvalContextPrintEnabled = True
         , pieEvalContextTasks = Nothing
         , pieEvalContextCmdArgs =
            map (second $ maybe PieNil PieString) (pieOptionOptions args)
