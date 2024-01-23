@@ -16,7 +16,7 @@ import Data.Bifunctor (second)
 import Data.Char (isSpace)
 import Data.Fixed (mod')
 import Data.Foldable (foldl', forM_)
-import Data.List (dropWhileEnd)
+import Data.List ( dropWhileEnd, isPrefixOf )
 import Data.Maybe (isJust, fromMaybe)
 import Data.Ord (clamp)
 import Data.Text (Text, pack)
@@ -24,16 +24,13 @@ import Data.Traversable (forM)
 import Error
 import Eval
 import GHC.Float.RealFracMethods (roundDoubleInt)
-import GHC.IO.Exception (ExitCode(ExitFailure))
 import qualified System.Environment
 import qualified System.FilePattern.Directory
 import System.Directory
-import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
-import System.Process (readCreateProcessWithExitCode, shell)
+import System.Process (callCommand)
 import GHC.IO (unsafePerformIO)
-import Data.List (isPrefixOf)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -262,15 +259,8 @@ shell'' args = do
       unpackArgs (PieString s) = s
       unpackArgs s = show s
       shellCommand = unwords $ map (unpackArgs . unError) args
-  (exitCode, out, err) <-
-    liftIO $ readCreateProcessWithExitCode (shell shellCommand) ""
-  case exitCode of
-    ExitFailure exitCode' ->
-      fail $
-        "Command \"" ++ shellCommand ++ "\" failed, exit code: " ++
-        show exitCode' ++ "\n\n" ++ "StdOut:\n" ++ makeIndent 1 ++ out ++
-        "\n\n" ++ "StdErr:\n" ++ makeIndent 1 ++ err
-    ExitSuccess -> pure $ PieString out
+  liftIO $ callCommand shellCommand
+  return PieNil
 
 lines' :: PieFunc
 lines' [UnError (PieString s)] = pure $ PieList $ map PieString $ lines s
