@@ -13,9 +13,10 @@ import System.Environment
 import Error
 import System.Directory.Internal.Prelude (exitFailure)
 import System.Directory (doesFileExist)
+import Main.Utf8 (withUtf8)
 
 main :: IO ()
-main = do
+main = withUtf8 $ do
   args <- getArgs >>= parseOptions
   let context = PieEvalContext
         { pieEvalContextEnv = runtime

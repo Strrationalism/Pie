@@ -7,7 +7,7 @@ import Data.Maybe (fromMaybe)
 import Data.SExpresso.Parse (decode, plainSExprParser)
 import Data.SExpresso.Parse.Generic (setSpace)
 import Data.Text (Text)
-import Data.Text.IO (readFile)
+import qualified Data.Text.IO.Utf8 as Utf8 (readFile)
 import Data.Void (Void)
 import Error
 import Prelude hiding (readFile)
@@ -97,5 +97,5 @@ parseFromText srcName =
 
 parseFromFile :: FilePath -> IO (Either String [PieExpr])
 parseFromFile srcPath = do
-  content <- readFile srcPath
+  content <- Utf8.readFile srcPath
   pure $ parseFromText srcPath content

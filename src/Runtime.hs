@@ -20,6 +20,7 @@ import Data.List ( dropWhileEnd, isPrefixOf )
 import Data.Maybe (isJust, fromMaybe)
 import Data.Ord (clamp)
 import Data.Text (Text, pack)
+import qualified Data.Text.IO.Utf8 as Utf8 (writeFile, readFile)
 import Data.Traversable (forM)
 import Error
 import Eval
@@ -31,6 +32,7 @@ import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (callCommand)
 import GHC.IO (unsafePerformIO)
+import Data.Text (unpack)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -379,12 +381,12 @@ executableExists xs = do
   pure $ PieBool $ all isJust x
 
 readFile' :: PieFunc
-readFile' [UnError (PieString f)] = PieString <$> liftIO (readFile f)
+readFile' [UnError (PieString f)] = PieString . unpack <$> liftIO (Utf8.readFile f)
 readFile' _ = invalidArg
 
 writeFile' :: PieFunc
 writeFile' [UnError (PieString path'''), UnError (PieString content)] =
-  liftIO (writeFile path''' content) >> pure PieNil
+  liftIO (Utf8.writeFile path''' $ pack content) >> pure PieNil
 writeFile' _ = invalidArg
 
 env :: PieFunc
