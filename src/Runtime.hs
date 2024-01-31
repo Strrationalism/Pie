@@ -19,7 +19,7 @@ import Data.Foldable (foldl', forM_)
 import Data.List ( dropWhileEnd, isPrefixOf )
 import Data.Maybe (isJust, fromMaybe)
 import Data.Ord (clamp)
-import Data.Text (Text, pack)
+import Data.Text ( Text, pack, unpack )
 import qualified Data.Text.IO.Utf8 as Utf8 (writeFile, readFile)
 import Data.Traversable (forM)
 import Error
@@ -31,8 +31,8 @@ import System.Directory
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (callCommand)
+import Utils (splitList, replaceList)
 import GHC.IO (unsafePerformIO)
-import Data.Text (unpack)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -587,6 +587,16 @@ isPrefixOf' [UnError (PieList prefix), UnError (PieList str)] =
   pure $ PieBool $ isPrefixOf prefix str
 isPrefixOf' _ = invalidArg
 
+stringSplit :: PieFunc
+stringSplit [UnError (PieString subStr), UnError (PieString str)] =
+  pure $ PieList $ map PieString $ splitList subStr str
+stringSplit _ = invalidArg
+
+stringReplace :: PieFunc
+stringReplace [UnError (PieString subStr), UnError (PieString rep), UnError (PieString s)] =
+  pure $ PieString $ replaceList subStr rep s
+stringReplace _ = invalidArg
+
 functions :: [(String, PieFunc)]
 functions =
   [ ("-", numericOperator (-))
@@ -675,6 +685,8 @@ functions =
   , ("slice", slice)
   , ("split-path", splitPath)
   , ("string-quoted", pure . PieString . quotedIfNecessary . list2String)
+  , ("string-replace", stringReplace)
+  , ("string-split", stringSplit)
   , ("string-trim-end", mapString $ dropWhileEnd isSpace)
   , ("string-trim-start", mapString $ dropWhile isSpace)
   , ("string-trim", mapString $ dropWhileEnd isSpace . dropWhile isSpace)
