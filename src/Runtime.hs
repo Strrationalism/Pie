@@ -549,6 +549,16 @@ skipWhile' = evalPieLambda ["f", "ls"] $
   "(if (empty? ls) ls " ++
     "(if (f (car ls)) ((self) f (cdr ls)) ls) )"
 
+fold' :: PieFunc
+fold' = evalPieLambda ["f", "state", "ls"] $
+  "(if (empty? ls) state " ++
+    "((self) f (f state (car ls)) (cdr ls)))"
+
+reduce' :: PieFunc
+reduce' = evalPieLambda ["f", "ls"] $
+  "(if (empty? ls) (error \"reduce need non empty list as argument but passed an empty list.\") " ++
+    "(fold f (car ls) (cdr ls)))"
+
 invoke :: PieFunc
 invoke [UnError (PieList args)] =
   fmap unError <$> evalExpr $ PieExprList $ map (PieExprAtom . noErrorInfo) args
@@ -622,6 +632,7 @@ functions =
   , ("filter", filter')
   , ("find-exec", findExecutable')
   , ("flat-map", flatMap')
+  , ("fold", fold')
   , ("function?", isTypeOf $ \case PieLambda {} -> True; PieHaskellFunction _ _ -> True; _ -> False)
   , ("get-opt", getOpt)
   , ("get-var", getVar)
@@ -653,6 +664,7 @@ functions =
   , ("path-exists", pathExists doesPathExist)
   , ("path", path pure)
   , ("read-file", readFile')
+  , ("reduce", reduce')
   , ("rel-path?", isXXXPath isRelative)
   , ("rel-path", relPath)
   , ("reverse", mapList $ PieList . reverse)
