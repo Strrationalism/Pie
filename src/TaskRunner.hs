@@ -5,6 +5,7 @@ module TaskRunner
   , singleThreaded
   , multiThreaded
   , runTaskBatch'
+  , taskOptimizable
   ) where
 
 import Task

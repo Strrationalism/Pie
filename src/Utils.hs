@@ -1,4 +1,4 @@
-module Utils ( splitList, replaceList ) where
+module Utils ( splitList, replaceList, allM ) where
 
 import Data.List ( stripPrefix, intercalate )
 
@@ -23,3 +23,8 @@ replaceList :: Eq a => [a] -> [a] -> [a] -> [a]
 replaceList subStr replacement =
   intercalate replacement . splitList subStr
 
+allM :: Monad m => (a -> m Bool) -> [a] -> m Bool
+allM _ [] = return True
+allM f (x : xs) = do
+  b <- f x
+  if b then allM f xs else return False

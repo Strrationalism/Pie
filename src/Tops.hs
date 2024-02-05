@@ -18,7 +18,8 @@ import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
 import Task (PieTaskDefinition(..), parsePieTask)
 import Data.Maybe (listToMaybe, fromMaybe)
-import TaskRunner (runTaskBatch')
+import TaskRunner (runTaskBatch', taskOptimizable)
+import Utils (allM)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
@@ -40,10 +41,13 @@ runAction (UnError (PieTopAction name body params env)) args = do
     flip runWithModifiedContext (evalStatements body) $ \ctx ->
       ctx { pieEvalContextEnv = env , pieEvalContextTasks = Just tasks}
   runner <- pieEvalContextTaskRunner <$> getContext
-  errs <- liftIO (readIORef tasks) >>= runTaskBatch' runner
-  unless (null errs) $ liftIO $ do
-    forM_ errs print
-    exitFailure
+  tasks' <- liftIO $ readIORef tasks
+  optimizable <- allM taskOptimizable tasks'
+  unless optimizable $ do
+    errs <- runTaskBatch' runner tasks'
+    unless (null errs) $ liftIO $ do
+      forM_ errs print
+      exitFailure
 
 runAction (WithErrorInfo x err) _ =
   runtimeError' err $ "\'" ++ show x ++ "\' is not an action."
