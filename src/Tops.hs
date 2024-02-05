@@ -42,12 +42,10 @@ runAction (UnError (PieTopAction name body params env)) args = do
       ctx { pieEvalContextEnv = env , pieEvalContextTasks = Just tasks}
   runner <- pieEvalContextTaskRunner <$> getContext
   tasks' <- liftIO $ readIORef tasks
-  optimizable <- allM taskOptimizable tasks'
-  unless optimizable $ do
-    errs <- runTaskBatch' runner tasks'
-    unless (null errs) $ liftIO $ do
-      forM_ errs print
-      exitFailure
+  errs <- runTaskBatch' runner tasks'
+  unless (null errs) $ liftIO $ do
+    forM_ errs print
+    exitFailure
 
 runAction (WithErrorInfo x err) _ =
   runtimeError' err $ "\'" ++ show x ++ "\' is not an action."

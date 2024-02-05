@@ -21,6 +21,7 @@ import Data.Time.Clock (UTCTime (UTCTime))
 import Data.Foldable (foldl')
 import Control.Concurrent.ParallelIO (parallel)
 import Control.Exception.Base (runtimeError)
+import Utils (allM)
 
 hasDependency :: PieTaskObj -> [PieTaskObj] -> Bool
 hasDependency x ls =
@@ -49,7 +50,7 @@ topoSort ls = do
 type BatchRunner = [PieTaskObj] -> PieEval [PieEvalError]
 
 taskOptimizable :: PieTaskObj -> PieEval Bool
-taskOptimizable obj = foldl' andM (pure True)
+taskOptimizable obj = allM id
   [ atLeastOneInputFiles,
     outputFileExists,
     outFileUpdated ]
@@ -69,10 +70,6 @@ taskOptimizable obj = foldl' andM (pure True)
       oldestOutModifyTime' <- oldestOutModifyTime
       newestInModifyTime' <- newestInModifyTime
       return $ oldestOutModifyTime' > newestInModifyTime'
-    andM :: PieEval Bool -> PieEval Bool -> PieEval Bool
-    andM a b = do
-      a' <- a
-      if not a' then return False else b
 
 runTask :: PieTaskObj -> PieEval (Maybe PieEvalError)
 runTask obj = do
