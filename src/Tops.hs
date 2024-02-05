@@ -18,8 +18,7 @@ import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
 import Task (PieTaskDefinition(..), parsePieTask)
 import Data.Maybe (listToMaybe, fromMaybe)
-import TaskRunner (runTaskBatch', taskOptimizable)
-import Utils (allM)
+import TaskRunner (runTaskBatch')
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr

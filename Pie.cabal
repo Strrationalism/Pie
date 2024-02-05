@@ -39,6 +39,7 @@ executable Pie
                      , parallel-io
                      , time
                      , with-utf8
+                     , unordered-containers
 
   ghc-options:         -Wall
                        -Wcompat

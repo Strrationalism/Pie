@@ -5,7 +5,6 @@ module TaskRunner
   , singleThreaded
   , multiThreaded
   , runTaskBatch'
-  , taskOptimizable
   ) where
 
 import Task
@@ -22,17 +21,19 @@ import Data.Foldable (foldl')
 import Control.Concurrent.ParallelIO (parallel)
 import Control.Exception.Base (runtimeError)
 import Utils (allM)
+import Data.HashSet (HashSet, fromList, member)
 
-hasDependency :: PieTaskObj -> [PieTaskObj] -> Bool
-hasDependency x ls =
-  flip any ls $ \y ->
-    let inFiles = pieTaskObjInFiles x
-        outFiles = pieTaskObjOutFiles y
-    in not $ null $ intersectBy equalFilePath inFiles outFiles
+type DependencySet = HashSet FilePath
+
+toDependencySet :: [PieTaskObj] -> DependencySet
+toDependencySet ls = fromList $ ls >>= pieTaskObjOutFiles
+
+hasDependency :: PieTaskObj -> DependencySet -> Bool
+hasDependency task deps = any (`member` deps) $ pieTaskObjInFiles task
 
 topoSort' :: [PieTaskObj] -> Either String ([PieTaskObj], [PieTaskObj])
 topoSort' ls =
-  case flip partition ls $ not . flip hasDependency ls of
+  case flip partition ls $ not . flip hasDependency (toDependencySet ls) of
     ([], _:_) -> Left $
       "Dependent cycle:"
       ++ unlines (fmap ((makeIndent 1 ++). pieTaskDefinitionName . pieTaskObjDefinition) ls)
@@ -60,7 +61,7 @@ taskOptimizable obj = allM id
     atLeastOneInputFiles :: PieEval Bool
     atLeastOneInputFiles = return $ not $ null inFiles
     outputFileExists :: PieEval Bool
-    outputFileExists = fmap and $ Control.Monad.forM outFiles $ liftIO . doesFileExist
+    outputFileExists = allM (liftIO . doesFileExist) outFiles
     newestInModifyTime :: PieEval UTCTime
     newestInModifyTime = fmap maximum $ Control.Monad.forM inFiles $ liftIO . getModificationTime
     oldestOutModifyTime :: PieEval UTCTime
