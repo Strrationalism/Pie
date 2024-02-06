@@ -30,9 +30,10 @@ import qualified System.FilePattern.Directory
 import System.Directory
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
-import System.Process (callCommand)
+import System.Process (callCommand, shell, readCreateProcessWithExitCode)
 import Utils (splitList, replaceList)
 import GHC.IO (unsafePerformIO)
+import System.Exit (ExitCode(..))
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -255,6 +256,26 @@ shell'' args = do
       shellCommand = unwords $ map (unpackArgs . unError) args
   liftIO $ callCommand shellCommand
   return PieNil
+
+shellReadStdOut :: PieFunc
+shellReadStdOut args = do
+  let unpackArgs (PieList s) = unwords $ map unpackArgs s
+      unpackArgs (PieString s) = s
+      unpackArgs s = show s
+      shellCommand = unwords $ map (unpackArgs . unError) args
+      processInfo = shell shellCommand
+  (exitCode, stdout, stderr) <- liftIO $
+    readCreateProcessWithExitCode processInfo ""
+  case exitCode of
+    ExitSuccess -> pure $ PieString stdout
+    ExitFailure exitCode' ->
+      let indent x = unlines $ map (makeIndent 1 ++) $ lines x
+          stderr' = indent stderr
+          stdout' = indent stdout in
+      fail $
+        "Command \"" ++ shellCommand ++ "\" failed, exit code: " ++
+        show exitCode' ++ "\n\n" ++ "StdOut:\n" ++ stdout' ++
+        "\n\n" ++ "StdErr:\n" ++ stderr'
 
 lines' :: PieFunc
 lines' [UnError (PieString s)] = pure $ PieList $ map PieString $ lines s
@@ -680,6 +701,7 @@ functions =
   , ("reverse", mapList $ PieList . reverse)
   , ("set-var", setVar)
   , ("shell", shell'')
+  , ("shell-read-stdout", shellReadStdOut)
   , ("skip-while", skipWhile')
   , ("skip", mapListI $ \i -> PieList . drop i)
   , ("slice", slice)
