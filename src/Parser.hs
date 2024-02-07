@@ -14,6 +14,7 @@ import Prelude hiding (readFile)
 import Text.Megaparsec
 import Text.Megaparsec.Char hiding (space)
 import Text.Megaparsec.Char.Lexer (space, skipLineComment)
+import Control.Monad (void)
 
 type PieParser = Parsec Void Text
 
@@ -71,8 +72,12 @@ quotedStringParser = between (char '\"') (char '\"') $ many quotedCharParser
 boolParser :: PieParser Bool
 boolParser = (True <$ string "true") <|> (False <$ string "false")
 
+nilParser :: PieParser ()
+nilParser = void (string "nil")
+
 pieAtomParser' :: PieParser PieValue'
 pieAtomParser' = choice $ fmap try [ pieNumberParser
+                                   , PieNil <$ nilParser
                                    , PieBool <$> boolParser
                                    , PieString <$> quotedStringParser
                                    , PieSymbol <$>  symbolParser ]
