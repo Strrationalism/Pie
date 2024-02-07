@@ -40,6 +40,9 @@ executable Pie
                      , time
                      , with-utf8
                      , unordered-containers
+                     , wreq
+                     , lens
+                     , bytestring
 
   ghc-options:         -Wall
                        -Wcompat

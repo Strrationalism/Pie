@@ -31,7 +31,7 @@ import System.Directory
 import System.FilePath hiding (splitPath)
 import System.FilePattern ( (?==) )
 import System.Process (callCommand, shell, readCreateProcessWithExitCode)
-import Utils (splitList, replaceList)
+import Utils (splitList, replaceList, httpGetString, httpGet)
 import GHC.IO (unsafePerformIO)
 import System.Exit (ExitCode(..))
 import System.Info
@@ -629,6 +629,18 @@ stringReplace [UnError (PieString subStr), UnError (PieString rep), UnError (Pie
   pure $ PieString $ replaceList subStr rep s
 stringReplace _ = invalidArg
 
+httpGet' :: PieFunc
+httpGet' [UnError (PieString url)] = PieString <$> liftIO (httpGetString url)
+httpGet' _ = invalidArg
+
+httpDownload' :: PieFunc
+httpDownload' [(UnError (PieString outFilePath)), (UnError (PieString url))] = do
+  content <- liftIO $ httpGet url
+  liftIO $ Utf8.writeFile outFilePath content
+  return PieNil
+httpDownload' _ = invalidArg
+
+
 functions :: [(String, PieFunc)]
 functions =
   [ ("-", numericOperator (-))
@@ -677,6 +689,8 @@ functions =
   , ("function?", isTypeOf $ \case PieLambda {} -> True; PieHaskellFunction _ _ -> True; _ -> False)
   , ("get-opt", getOpt)
   , ("get-var", getVar)
+  , ("http-get", httpGet')
+  , ("http-download", httpDownload')
   , ("id", id')
   , ("init", mapList $ PieList . init)
   , ("int-range", intRange)
