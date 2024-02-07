@@ -34,6 +34,8 @@ import System.Process (callCommand, shell, readCreateProcessWithExitCode)
 import Utils (splitList, replaceList)
 import GHC.IO (unsafePerformIO)
 import System.Exit (ExitCode(..))
+import System.Info
+import GHC.Conc (getNumProcessors)
 
 type PieSyntax = [PieExpr] -> PieEval PieExpr
 type PieFunc = [PieValue] -> PieEval PieValue'
@@ -45,8 +47,11 @@ list2String :: [PieValue] -> String
 list2String = unwords . map valueToString
 
 runtime :: PieEnv
-runtime = fmap wrapLib (syntaxes ++ map (second wrapFunc) functions)
+runtime = syntaxes' ++ functions' ++ constants'
   where
+    constants' = map (second noErrorInfo) constants
+    syntaxes' = wrapLib <$> syntaxes
+    functions' = wrapLib . second wrapFunc <$> functions
     wrapFunc :: PieFunc -> PieSyntax
     wrapFunc f exprs = do
       args <- mapM evalExpr exprs
@@ -55,6 +60,16 @@ runtime = fmap wrapLib (syntaxes ++ map (second wrapFunc) functions)
     wrapLib :: (String, PieSyntax) -> (String, PieValue)
     wrapLib (name, f) = (name ,) $ noErrorInfo $ PieHaskellFunction name $
       \args context -> runEval (f args) context
+
+-- Constants
+
+constants :: [(String, PieValue')]
+constants =
+  [ ("os", PieString $ if os == "mingw32" then "windows" else os)
+  , ("arch", PieString arch)
+  , ("cwd", PieString $ unsafePerformIO getCurrentDirectory)
+  , ("env-path", PieList $ map PieString $ unsafePerformIO getSearchPath)
+  , ("cpu-count", PieNumber $ fromIntegral $ unsafePerformIO getNumProcessors) ]
 
 -- Syntaxes
 
@@ -421,10 +436,6 @@ env [UnError (PieString name)] = do
     Just x -> pure $ PieString x
 env _ = undefined
 
-envPath :: PieFunc
-envPath [] = PieList <$> (map PieString <$> liftIO getSearchPath)
-envPath _ = invalidArg
-
 id' :: PieFunc
 id' [UnError e] = pure e
 id' _ = invalidArg
@@ -650,7 +661,6 @@ functions =
   , ("empty?", isEmpty)
   , ("encode-string", encodeString')
   , ("ensure-dir", ensureDir)
-  , ("env-path", envPath)
   , ("env", env)
   , ("eq?", comparisonOperator $ \a b -> pure $ a == b)
   , ("error", fail . list2String)
