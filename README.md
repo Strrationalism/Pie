@@ -293,3 +293,8 @@ Pie构建脚本中每个值都具有一个类型，值可能具有以下类型�
     clean   ;; 重新导出才可以被命令行或其他模块调用
     build)  ;; 最后一个导出的action将会被作为默认action，在命令行中不指定action时执行
 ```
+
+### 查看所有语法、内置的常量与函数
+
+你可以到[Pie Wiki](https://github.com/Strrationalism/Pie/wiki)上找到所有的语法、内置
+的常量与函数。
