@@ -131,6 +131,8 @@ Pie构建脚本中每个值都具有一个类型，值可能具有以下类型�
         (h "Hello ")
         (w "World!")
         (display h w)))
+
+(export main)
 ```
 
 ### 函数
@@ -170,6 +172,33 @@ Pie构建脚本中每个值都具有一个类型，值可能具有以下类型�
 (lambda (x y)
     (display "Add " x " " y)
     (+ x y))    ;; 返回x和y的和
+```
+
+调用函数则必须使用`()`来包裹函数和参数，如：
+
+```lisp
+
+(define (f) (display "Function F!"))
+(define (g x) (display "Function G! Argument:" x))
+
+(action main
+    (f)         ;; 调用了f函数
+    (g 1))      ;; 调用了g函数
+
+(export main)
+```
+
+如果在函数上不写括号，则表示为取这个函数的引用：
+
+```lisp
+(define (f) (display "Function F!"))
+
+(define (g1)
+    f)      ;; 没有包裹()，表示g1的返回值为f函数
+
+(define (g2)
+    (f))    ;; 包裹了()，表示调用f后，将f的返回值作为g2的返回值
+
 ```
 
 ### 任务
@@ -262,4 +291,3 @@ Pie构建脚本中每个值都具有一个类型，值可能具有以下类型�
     clean   ;; 重新导出才可以被命令行或其他模块调用
     build)  ;; 最后一个导出的action将会被作为默认action，在命令行中不指定action时执行
 ```
-
