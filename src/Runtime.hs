@@ -468,12 +468,6 @@ relPath [UnError (PieString base), UnError (PieString p)] =
 relPath [p] = relPath [noErrorInfo $ PieString ".", p]
 relPath _ = invalidArg
 
-absPath :: PieFunc
-absPath [UnError (PieString p)] = do
-  p' <- liftIO $ makeAbsolute p
-  pure $ PieString p'
-absPath _ = invalidArg
-
 isXXXPath :: (String -> Bool) -> PieFunc
 isXXXPath f paths = do
   p <- getStrings paths
@@ -634,7 +628,7 @@ httpGet' [UnError (PieString url)] = PieString <$> liftIO (httpGetString url)
 httpGet' _ = invalidArg
 
 httpDownload' :: PieFunc
-httpDownload' [UnError (PieString outFilePath), (UnError (PieString url))] = do
+httpDownload' [UnError (PieString outFilePath), UnError (PieString url)] = do
   content <- liftIO $ httpGet url
   liftIO $ Utf8.writeFile outFilePath content
   return PieNil
@@ -653,7 +647,6 @@ functions =
   , (">", comparisonOperator' (>))
   , (">=", comparisonOperator' (>=))
   , ("abs-path?", isXXXPath isAbsolute)
-  , ("abs-path", absPath)
   , ("abs-path", path makeAbsolute)
   , ("abs", abs')
   , ("and", booleanOperator (&&))
