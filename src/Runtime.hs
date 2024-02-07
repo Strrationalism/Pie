@@ -634,7 +634,7 @@ httpGet' [UnError (PieString url)] = PieString <$> liftIO (httpGetString url)
 httpGet' _ = invalidArg
 
 httpDownload' :: PieFunc
-httpDownload' [(UnError (PieString outFilePath)), (UnError (PieString url))] = do
+httpDownload' [UnError (PieString outFilePath), (UnError (PieString url))] = do
   content <- liftIO $ httpGet url
   liftIO $ Utf8.writeFile outFilePath content
   return PieNil
