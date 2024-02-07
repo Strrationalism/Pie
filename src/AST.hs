@@ -52,7 +52,7 @@ instance Show PieValue' where
   show (PieString s) = show s
   show (PieSymbol s) = s
   show (PieVar m) = "(var " ++ show (unsafePerformIO (readMVar m)) ++ ")"
-  show PieNil = "()"
+  show PieNil = "nil"
   show (PieLambda _ a b _) =
     "(lambda " ++ either (++ " ") (\a' -> "(" ++ unwords a' ++ ") ") a ++
     prettyPrintExprs b ++ ")"

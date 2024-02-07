@@ -192,11 +192,11 @@ evalExpr x = fail $ prettyPrintExpr x
 processDefineSyntax :: [PieExpr] -> PieEval (String, PieValue)
 processDefineSyntax [PieExprAtom (UnError (PieSymbol name)), body] =
   evalExpr body >>= \body' -> pure (name, body')
-processDefineSyntax [PieExprList1Symbol funcName params, body] = do
+processDefineSyntax (PieExprList1Symbol funcName params : body) = do
   env <- pieEvalContextEnv <$> getContext
   params' <- mapM getSymbol params
   let recSelf = (funcName, noErrorInfo func)
-      func = PieLambda (Just funcName) (Right params') [body] (recSelf:env)
+      func = PieLambda (Just funcName) (Right params') body (recSelf:env)
   pure (funcName, noErrorInfo func)
 processDefineSyntax _ = fail "Invalid define syntax."
 
