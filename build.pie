@@ -9,12 +9,11 @@
     (define divides (int-range 2 (/ x 2)))
     (all-lists (map (lambda (n) (ne? 0 (mod x n))) divides)))
 
-(define (print-primes n)
-    (foreach i (int-range 1 n)
-        (if (prime? i) (display i))))
+(define (gen-primes n)
+    (filter prime? (int-range 1 n)))
 
 (action bench
-    (print-primes 4096))
+    (gen-primes 4096))
 
 (action build
     (shell "stack" "build"))
