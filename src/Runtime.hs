@@ -69,7 +69,8 @@ constants =
   , ("arch", PieString arch)
   , ("cwd", PieString $ unsafePerformIO getCurrentDirectory)
   , ("env-path", PieList $ map PieString $ unsafePerformIO getSearchPath)
-  , ("cpu-count", PieNumber $ fromIntegral $ unsafePerformIO getNumProcessors) ]
+  , ("cpu-count", PieNumber $ fromIntegral $ unsafePerformIO getNumProcessors)
+  , ("temp-dir", PieString $ unsafePerformIO getTemporaryDirectory) ]
 
 -- Syntaxes
 
@@ -381,12 +382,6 @@ listDir xs = do
   r <- liftIO $ forM xs' listDirectory
   pure $ PieList $ map PieString $ concat r
 
-tempDir :: PieFunc
-tempDir [] = do
-  tmpDir <- liftIO getTemporaryDirectory
-  pure $ PieString tmpDir
-tempDir _ = invalidArg
-
 path :: (String -> IO String) ->PieFunc
 path k subPaths = do
   let xs = map valueToString subPaths
@@ -477,10 +472,7 @@ mapList :: ([PieValue'] -> PieValue') -> PieFunc
 mapList f [UnError (PieList ls)] = do
   pure $ f ls
 mapList f [UnError (PieString ls)] = do
-  let x = f $ map (PieNumber . fromIntegral . fromEnum) ls
-  case x of
-    PieList ls' -> PieString <$> encodeString ls'
-    x' -> pure x'
+  pure $ f $ map (PieNumber . fromIntegral . fromEnum) ls
 mapList _ _ = invalidArg
 
 mapListI :: (Int -> [PieValue'] -> PieValue') -> PieFunc
@@ -733,7 +725,6 @@ functions =
   , ("string", pure . PieString . list2String)
   , ("take-while", takeWhile')
   , ("take", mapListI $ \i -> PieList . take i)
-  , ("temp-dir", tempDir)
   , ("unlines", unlines'')
   , ("unwords", unwords'')
   , ("valid-path?", isXXXPath isValid)
