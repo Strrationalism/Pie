@@ -1,5 +1,7 @@
 # Pie 构建系统
 
+![LICENSE](https://www.gnu.org/graphics/agplv3-88x31.png)
+
 一个基于S-表达式语法的构建系统。
 
 ## 编译
