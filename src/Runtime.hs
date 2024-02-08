@@ -89,14 +89,6 @@ if' _ = fail "Invalid if syntax."
 do' :: PieSyntax
 do' = fmap PieExprAtom . evalStatements
 
-let' :: PieSyntax
-let' [] = fail "Invalid let syntax."
-let' args =
-  let bindings = init args
-      expr = last args
-      result = runWithDefinesSyntax bindings $ evalExpr expr
-  in PieExprAtom <$> result
-
 cond :: PieSyntax
 cond [PieExprList [condition, body]] =
   pure $ PieExprList1 (PieExprAtom $ noErrorInfo $ PieSymbol "if")
@@ -161,7 +153,6 @@ syntaxes :: [(String, PieSyntax)]
 syntaxes =
   [ ("if", if')
   , ("do", do')
-  , ("let", let')
   , ("cond", cond)
   , ("foreach", foreach)
   , ("lambda", lambda)
