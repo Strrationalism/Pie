@@ -640,7 +640,7 @@ functions =
   [ ("-", numericOperator (-))
   , ("*", numericOperator (*))
   , ("/", numericOperator (/))
-  , ("%", numericOperator mod')
+  , ("mod", numericOperator mod')
   , ("+", add)
   , ("<", comparisonOperator' (<))
   , ("<=", comparisonOperator' (<=))

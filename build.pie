@@ -1,0 +1,28 @@
+(define all-lists (rec (lambda (self) (lambda (bools)
+    (if (empty? bools)
+        true
+        (if (not (car bools))
+            false
+            ((self) (cdr bools))))))))
+
+(define (prime? x)
+    (define divides (int-range 2 (/ x 2)))
+    (all-lists (map (lambda (n) (ne? 0 (mod x n))) divides)))
+
+(define (print-primes n)
+    (foreach i (int-range 1 n)
+        (if (prime? i) (display i))))
+
+(action bench
+    (print-primes 4096))
+
+(action build
+    (shell "stack" "build"))
+
+(action install
+    (shell "stack" "install"))
+
+(export
+    install
+    build
+    bench)
