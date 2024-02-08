@@ -715,7 +715,6 @@ functions =
   , ("skip", mapListI $ \i -> PieList . drop i)
   , ("slice", slice)
   , ("split-path", splitPath)
-  , ("string-quoted", pure . PieString . quotedIfNecessary . list2String)
   , ("string-replace", stringReplace)
   , ("string-split", stringSplit)
   , ("string-trim-end", mapString $ dropWhileEnd isSpace)
