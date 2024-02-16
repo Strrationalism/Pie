@@ -35,7 +35,7 @@ main = withUtf8 $ do
     unless buildFileExists $ liftIO $ do
       putStrLn "\"./build.pie\" not exists."
       exitFailure
-    exports <- parseExports "./build.pie"
+    exports <- parseExportsLocal "./build.pie"
     let action =
           if null $ pieOptionActionName args
             then snd <$> findDefaultAction exports

@@ -1,33 +1,53 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-module Tops ( parseExports, runAction, findDefaultAction ) where
+module Tops ( parseExportsLocal, runAction, findDefaultAction ) where
 
 import AST
 import Control.Monad (forM, forM_, when, unless)
 import Control.Monad.IO.Class ( liftIO )
 import Data.IORef (IORef, writeIORef, readIORef, newIORef)
-import Data.List (find)
+import Data.List (find, isPrefixOf)
 import Error
 import Eval
-import Parser ( parseFromFile )
+import Parser ( parseFromFile, parseFromText )
 import Runtime (getStrings, runtime)
 import System.Directory (makeAbsolute)
 import System.Exit ( exitFailure )
 import System.FilePath ( equalFilePath, takeDirectory, joinPath )
 import Data.Functor (void)
 import Task (PieTaskDefinition(..), parsePieTask)
-import Data.Maybe (listToMaybe, fromMaybe)
+import Data.Maybe (listToMaybe)
 import TaskRunner (runTaskBatch')
+import Utils (httpGet)
 
 pattern PieTopDefinition ::
   String -> Maybe ErrorInfo -> [PieExpr] -> PieExpr
 pattern PieTopDefinition sym err xs <-
   PieExprList1 (PieExprAtom (WithErrorInfo (PieSymbol sym) err)) xs
 
+data ImportPath
+  = Local FilePath
+  | Http String
+
+instance Eq ImportPath where
+  Local a == Local b = equalFilePath a b
+  Http a == Http b = a == b
+  _ == _ = False
+
+instance Show ImportPath where
+  show (Local a) = a
+  show (Http a) = a
+
+parseImportPath :: String -> ImportPath
+parseImportPath x
+  | "http://" `isPrefixOf` x = Http x
+  | "https://" `isPrefixOf` x = Http x
+  | otherwise = Local x
+
 data PieImportState = PieImportState
-  { pieImportStateRoute :: [FilePath]
-  , pieImportStateAlreadyImported :: IORef [(FilePath, PieEnv)] }
+  { pieImportStateRoute :: [ImportPath]
+  , pieImportStateAlreadyImported :: IORef [(ImportPath, PieEnv)] }
 
 runAction :: PieValue -> [PieValue'] -> PieEval ()
 runAction (UnError (PieTopAction name body params env)) args = do
@@ -57,12 +77,12 @@ loadExports _ [] = do
 loadExports impState (PieTopDefinition "import" err imports : next) = do
   let currentFileName = head $ pieImportStateRoute impState
   imports' <- mapM evalExpr imports
-  imports'' <- getStrings imports'
+  imports'' <- map parseImportPath <$> getStrings imports'
   forM_ imports'' $ \importPath ->
-    when (any (importPathEquals importPath) $ pieImportStateRoute impState) $
+    when (elem importPath $ pieImportStateRoute impState) $
       runtimeError' err $
-        "Import cycle between \"" ++ importPath ++
-        "\" and \"" ++ currentFileName ++ "\"."
+        "Import cycle between \"" ++ show importPath ++
+        "\" and \"" ++ show currentFileName ++ "\"."
   env <- forM imports'' $ importExports impState
   runWithNewVars (concat env) $ loadExports impState next
 loadExports i (PieTopDefinition "define" _ d : next) =
@@ -94,18 +114,36 @@ loadExports i (PieTopDefinition "export" err e : next) = do
 loadExports _ (wtf:_) =
   fail $ "Unknown top-level definition:\n" ++ prettyPrintExpr wtf
 
-importPathEquals :: FilePath -> FilePath -> Bool
-importPathEquals = equalFilePath
-
-importExports :: PieImportState -> FilePath -> PieEval PieEnv
-importExports importState relativePath = do
+importExports :: PieImportState -> ImportPath -> PieEval PieEnv
+importExports importState (Http url) = do
   curAlready <- liftIO $ readIORef $
     pieImportStateAlreadyImported importState
-  let lastFile = listToMaybe $ pieImportStateRoute importState
-      lastFileDir = takeDirectory $ fromMaybe "./" lastFile
-      relativeToPwdPath = joinPath [lastFileDir, relativePath]
+  case find ((== Http url) . fst) curAlready of
+    Just x -> pure $ snd x
+    Nothing -> do
+      pieScriptContent <- liftIO $ httpGet url
+      case parseFromText url pieScriptContent of
+        Left e -> liftIO $ putStrLn e >> exitFailure
+        Right v -> do
+          env <- runInEnv runtime $ flip loadExports v $ importState
+            { pieImportStateRoute = Http url : pieImportStateRoute importState }
+          liftIO $ writeIORef (pieImportStateAlreadyImported importState) $
+            (Http url, env) : curAlready
+          return env
+
+importExports importState (Local relativePath) = do
+  curAlready <- liftIO $ readIORef $
+    pieImportStateAlreadyImported importState
+  let lastImportPath = listToMaybe $ pieImportStateRoute importState
+  lastFileDir <-
+    case lastImportPath of
+      Just (Local x) -> pure $ takeDirectory x
+      Just (Http _) -> fail "Can not import local file from http import."
+      Nothing -> pure "./"
+  let relativeToPwdPath = joinPath [lastFileDir, relativePath]
   path' <- liftIO $  makeAbsolute relativeToPwdPath
-  case find (importPathEquals path' . fst) curAlready of
+  let path'' = Local path'
+  case find ((== path'') . fst) curAlready of
     Just x -> pure $ snd x
     Nothing -> do
       file <- liftIO $ parseFromFile path'
@@ -114,18 +152,21 @@ importExports importState relativePath = do
           e <-
             runInEnv runtime $
               flip loadExports x $ importState
-                { pieImportStateRoute = path' : pieImportStateRoute importState }
+                { pieImportStateRoute = path'' : pieImportStateRoute importState }
           liftIO $ writeIORef (pieImportStateAlreadyImported importState) $
-            (path', e) : curAlready
+            (path'', e) : curAlready
           return e
         Left x -> liftIO (putStrLn x >> exitFailure)
 
-parseExports :: FilePath -> PieEval PieEnv
+parseExports :: ImportPath -> PieEval PieEnv
 parseExports path = do
   a <- liftIO $ newIORef []
   flip importExports path $ PieImportState
     { pieImportStateAlreadyImported = a
     , pieImportStateRoute = [] }
+
+parseExportsLocal :: FilePath -> PieEval PieEnv
+parseExportsLocal = parseExports . Local
 
 findDefaultAction :: PieEnv -> Maybe (String, PieValue)
 findDefaultAction = find (\case (_, UnError (PieTopAction {})) -> True; _ -> False)
