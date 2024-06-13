@@ -5,15 +5,22 @@
 
 packages:
 - completed:
-    hackage: sexpresso-1.2.3.0@sha256:b78a541302fe87f2976af344527a400049ae66fdfd7c78ba1fc08f1ffc8df250,2087
+    hackage: sexpresso-1.2.4.0@sha256:e79a6a88c54ec4772f9b4d653863b596e8a04e7a1c895bcee77d4cd54cf8089f,2099
     pantry-tree:
-      sha256: 59e73a1087b5da8d3b23a39b3e3bb9ad97bc1afd4e8e5124c7c1eb3c06283868
+      sha256: 701e3120908d02af7a6ec4aa3bc1bf8711b1dd71d5623bf27e6b110a9d0eb407
       size: 1153
   original:
-    hackage: sexpresso-1.2.3.0
+    hackage: sexpresso-1.2.4.0
+- completed:
+    hackage: megaparsec-9.3.1@sha256:2441128551a0e61f783228bd9a24ed1842e872abd53ceaa6d8b5e67c50da373f,3219
+    pantry-tree:
+      sha256: 1137b1fc47a14d851fbba7ea343014119bf1f3934acdb5c3f1151216cf0f2ccc
+      size: 1519
+  original:
+    hackage: megaparsec-9.3.1
 snapshots:
 - completed:
-    sha256: a81fb3877c4f9031e1325eb3935122e608d80715dc16b586eb11ddbff8671ecd
-    size: 640086
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/25.yaml
-  original: lts-21.25
+    sha256: 9b43e51f2c54211993d5954da8b49604704d8288103b8d9150a19a703f4e55e7
+    size: 719126
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/25.yaml
+  original: lts-22.25

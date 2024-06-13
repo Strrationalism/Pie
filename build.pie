@@ -18,10 +18,6 @@
 (action build
     (shell "stack" "build"))
 
-(action install
-    (shell "stack" "install"))
-
 (export
-    install
-    build
-    bench)
+    bench
+    build)

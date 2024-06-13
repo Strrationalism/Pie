@@ -1,7 +1,8 @@
-resolver: lts-21.25
+resolver: lts-22.25
 
 packages:
 - .
 
 extra-deps:
-- sexpresso-1.2.3.0
+- sexpresso-1.2.4.0
+- megaparsec-9.3.1

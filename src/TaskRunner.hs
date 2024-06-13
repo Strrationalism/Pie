@@ -19,7 +19,6 @@ import System.Directory (doesFileExist, getModificationTime)
 import Data.Time.Clock (UTCTime (UTCTime))
 import Data.Foldable (foldl')
 import Control.Concurrent.ParallelIO (parallel)
-import Control.Exception.Base (runtimeError)
 import Utils (allM)
 import Data.HashSet (HashSet, fromList, member)
 
